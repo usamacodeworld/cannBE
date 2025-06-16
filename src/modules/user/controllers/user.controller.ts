@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import * as userService from "../services/user.service";
 import { getResponseAPI } from "../../../common/getResponseAPI";
+import { GetUsersQueryDto } from "../dto/get-users-query.dto";
 
 export const register = async (
   req: Request,
@@ -26,6 +27,20 @@ export const getProfile = async (
 
     const userProfile = await userService.getUserProfile(userId);
     res.json(getResponseAPI("0", { user: userProfile }));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const query = req.query as unknown as GetUsersQueryDto;
+    const users = await userService.getUsers(query);
+    res.json(getResponseAPI("0", users));
   } catch (error) {
     next(error);
   }
