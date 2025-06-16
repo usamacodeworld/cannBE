@@ -5,6 +5,7 @@ import { LoginDto } from "../dto/login.dto";
 import { UserResponseDto } from "../../user/dto/user-response.dto";
 import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
+import { getResponseAPI } from "../../../common/getResponseAPI";
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -13,14 +14,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Find user by email
     const user = await userRepository.findOne({ where: { email } });
     if (!user) {
-      res.status(401).json({ message: "Invalid credentials" });
+      res.json(getResponseAPI("401", { message: "Invalid credentials" }));
       return;
     }
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      res.status(401).json({ message: "Invalid credentials" });
+      res.json(getResponseAPI("401", { message: "Invalid credentials" }));
       return;
     }
 
@@ -43,9 +44,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       updatedAt: user.updatedAt,
     };
 
-    res.json({ user: userResponse, token });
+    res.json(getResponseAPI("0", { user: userResponse, token }));
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json(getResponseAPI("500", { message: "IInternal server error" }));
   }
 };

@@ -13,7 +13,6 @@
     "migration:revert": "npm run typeorm migration:revert -- -d src/config/database.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "ts-node src/scripts/seed.ts"
-    
   },
   "keywords": [
     "node",
@@ -23,6 +22,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@paralleldrive/cuid2": "^2.2.2",
     "@types/bcrypt": "^5.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",

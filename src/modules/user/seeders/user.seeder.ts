@@ -1,7 +1,6 @@
 import { DataSource } from "typeorm";
 import { BaseSeeder } from "../../../common/seeders/base.seeder";
 import { User } from "../entities/user.entity";
-import * as bcrypt from "bcrypt";
 
 export class UserSeeder extends BaseSeeder {
   constructor(dataSource: DataSource) {
