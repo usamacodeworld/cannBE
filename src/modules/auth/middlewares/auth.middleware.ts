@@ -2,9 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { AppDataSource } from "../../../config/database";
 import { User } from "../../user/entities/user.entity";
+import { getResponseAPI } from "../../../common/getResponseAPI";
 
 const userRepository = AppDataSource.getRepository(User);
-const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key";
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 interface JwtPayload {
   userId: string;
@@ -24,10 +25,17 @@ export const authenticate = async (
   next: NextFunction
 ) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    const authHeader = req.header("Authorization");
+    
+    if (!authHeader) {
+      res.json(getResponseAPI("401", { message: "Authentication required" }));
+      return;
+    }
+
+    const token = authHeader.replace("Bearer ", "");
 
     if (!token) {
-      res.status(401).json({ message: "Authentication required" });
+      res.json(getResponseAPI("401", { message: "Invalid token format" }));
       return;
     }
 
@@ -37,13 +45,14 @@ export const authenticate = async (
     });
 
     if (!user) {
-      res.status(401).json({ message: "User not found" });
+      res.json(getResponseAPI("401", { message: "User not found" }));
       return;
     }
 
     req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ message: "Invalid token" });
+    console.error("Authentication error:", error);
+    res.json(getResponseAPI("401", { message: "Invalid token" }));
   }
 };
