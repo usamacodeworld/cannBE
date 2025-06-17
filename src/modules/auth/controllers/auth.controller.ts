@@ -25,6 +25,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    console.log("Not called");
+
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id },
@@ -44,9 +46,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       updatedAt: user.updatedAt,
     };
 
-    res.json(getResponseAPI("0", { user: userResponse, token }));
+    res.json(getResponseAPI("200", { user: userResponse, token }));
   } catch (error) {
-    console.error("Login error:", error);
+    console.log("Not called 1");
     res.json(getResponseAPI("500", { message: "IInternal server error" }));
   }
 };

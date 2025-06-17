@@ -1,4 +1,6 @@
 export const RES_CODE_MSG = {
+  LOGIN_SUCCESS: "Successfully login.",
+  LOGOUT_SUCCESS: "Successfully logout.",
   // NOTE: HTTP Response Code
   "200": "Success",
   "204": "No Content",

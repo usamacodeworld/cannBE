@@ -23,6 +23,9 @@ export const getResponseAPI = (code: ResCode, data?: getResponseAPIData) => {
   const isNaN = Number.isNaN(codeNumb);
 
   switch (code) {
+    case RES_CODE.LOGIN_SUCCESS:
+    case RES_CODE.LOGOUT_SUCCESS:
+      return { ...defaultResponse, code: 0 };
     case RES_CODE[401]:
       return { code: 401, ...defaultResponse };
     case RES_CODE[400]:
