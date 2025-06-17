@@ -37,13 +37,11 @@ export const getUsers = async (
   res: Response,
   next: NextFunction
 ) => {
-  console.log("Response  ===> ", req);
   try {
-    const query = req.query as unknown as GetUsersQueryDto;
+    const query = req.validatedQuery as GetUsersQueryDto;
     const users = await userService.getUsers(query);
     res.json(getResponseAPI("0", users));
   } catch (error) {
-    res.json(getResponseAPI("0", { errors: error }));
     next(error);
   }
 };

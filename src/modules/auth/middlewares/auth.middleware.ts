@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { User } from "../../user/entities/user.entity";
 import { RES_CODE } from "../../../constants/responseCode";
 import { verifyToken } from "../../../libs/jwt";
+import { AppDataSource } from "../../../config/database";
 
 declare global {
   namespace Express {
@@ -11,25 +12,45 @@ declare global {
   }
 }
 
-export const authenticate = (req: Request, _: Response, next: NextFunction) => {
-  const header = req.headers.authorization || "";
-  const refreshToken = header.split("Bearer ")[1];
-
-  if (!refreshToken) return next(new Error(RES_CODE.NO_TOKEN_PROVIDED));
-  console.log("Refreshtok ==> ", refreshToken);
+export const authenticate = async (req: Request, _: Response, next: NextFunction) => {
   try {
-    // NOTE: `verifyToken` function will check if the token is not expired and invalid signature
-    verifyToken(refreshToken);
+    const header = req.headers.authorization || "";
+    const accessToken = header.split("Bearer ")[1];
+
+    if (!accessToken) {
+      return next(new Error(RES_CODE.NO_TOKEN_PROVIDED));
+    }
+
+    // Verify the access token
+    const decoded = verifyToken(accessToken);
+
+    // Get the user from the database with roles and permissions
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: decoded.id },
+      relations: ['roles', 'roles.permissions']
+    });
+
+    if (!user) {
+      return next(new Error(RES_CODE["401"]));
+    }
+
+    // Attach the user to the request
+    req.user = user;
     return next();
   } catch (error) {
-    const msg = error;
-    console.log("Errror ===> ", msg);
-    // NOTE: When the `verifyToken` function throw an error, it will be caught by the catch block
-    if (msg === "invalid signature")
-      return next(new Error(RES_CODE.INVALID_TOKEN_SIGNATURE));
-    if (msg === "jwt expired") return next(new Error(RES_CODE.TOKEN_EXPIRED));
-
-    return next(error);
+    console.error("Authentication error:", error);
+    
+    if (error instanceof Error) {
+      if (error.message === "Token expired") {
+        return next(new Error(RES_CODE.TOKEN_EXPIRED));
+      }
+      if (error.message === "Invalid token") {
+        return next(new Error(RES_CODE.INVALID_TOKEN_SIGNATURE));
+      }
+    }
+    
+    return next(new Error(RES_CODE.INVALID_TOKEN_SIGNATURE));
   }
 };
 
