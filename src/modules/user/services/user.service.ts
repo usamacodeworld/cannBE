@@ -6,6 +6,7 @@ import { GetUsersQueryDto } from "../dto/get-users-query.dto";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto";
 import * as bcrypt from "bcrypt";
 import { Like } from "typeorm";
+import { USER_TYPE } from "@/constants/user";
 
 const userRepository = AppDataSource.getRepository(User);
 
@@ -36,6 +37,7 @@ export const createUser = async (
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
+    type: user.type as USER_TYPE,
     phone: user.phone,
     emailVerified: user.emailVerified,
     createdAt: user.createdAt,
@@ -58,6 +60,7 @@ export const getUserProfile = async (
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
+    type: user.type as USER_TYPE,
     phone: user.phone,
     emailVerified: user.emailVerified,
     createdAt: user.createdAt,
@@ -73,13 +76,13 @@ export const getUsers = async (
 
   // Build where conditions
   const whereConditions: any = {};
-  
+
   if (search) {
     whereConditions.where = [
       { firstName: Like(`%${search}%`) },
       { lastName: Like(`%${search}%`) },
       { email: Like(`%${search}%`) },
-      { userName: Like(`%${search}%`) }
+      { userName: Like(`%${search}%`) },
     ];
   }
 
@@ -97,17 +100,18 @@ export const getUsers = async (
     skip,
     take: limit,
     order: {
-      createdAt: 'DESC'
-    }
+      createdAt: "DESC",
+    },
   });
 
   // Transform users to response DTO
-  const userDtos: UserResponseDto[] = users.map(user => ({
+  const userDtos: UserResponseDto[] = users.map((user) => ({
     id: user.id,
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
     phone: user.phone,
+    type: user.type as USER_TYPE,
     emailVerified: user.emailVerified,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -119,7 +123,7 @@ export const getUsers = async (
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit)
-    }
+      totalPages: Math.ceil(total / limit),
+    },
   };
 };

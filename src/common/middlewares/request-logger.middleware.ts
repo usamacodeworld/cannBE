@@ -6,7 +6,7 @@ export const requestLogger = (
   next: NextFunction
 ) => {
   const start = Date.now();
-  const authHeader = req.header("Authorization");
+  const authHeader = req.headers.authorization;
 
   // Enhanced auth diagnostics
   let authDiagnostic = "No auth header";

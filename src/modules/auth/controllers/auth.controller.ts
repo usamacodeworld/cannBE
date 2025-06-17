@@ -15,11 +15,15 @@ export const login = async (
   try {
     const loginDto: LoginDto = req.body;
     const result = await authService.login(loginDto);
-    res.json(getResponseAPI(RES_CODE.LOGIN_SUCCESS, result));
+    console.log("services ==> ", result);
+    res.json(getResponseAPI(RES_CODE.LOGIN_SUCCESS, result.user));
   } catch (error) {
+    console.log(error);
     if (error instanceof AuthError) {
       const statusCode = error.statusCode.toString() as keyof typeof RES_CODE;
-      res.status(error.statusCode).json(getResponseAPI(RES_CODE[statusCode], { message: error.message }));
+      res
+        .status(error.statusCode)
+        .json(getResponseAPI(RES_CODE[statusCode], { message: error.message }));
     } else {
       next(error);
     }

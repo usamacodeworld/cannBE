@@ -7,7 +7,6 @@ export type TransformUserInfoResult = {
   firstName: string;
   lastName: string;
   email: string;
-  buyerId?: string;
   roles?: { id: string; name: string }[];
 };
 

@@ -12,7 +12,8 @@ export type AccessTokenPayloadRegisteredUser = {
 
   // Add more properties here
   isGuest?: boolean
-} & Pick<TransformUserInfoResult, 'roles' >
+} 
+& Pick<TransformUserInfoResult, 'roles' >
 
 // export type AccessTokenPayloadGuestUser = {
 //   sub: string

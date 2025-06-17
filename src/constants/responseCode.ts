@@ -1,6 +1,10 @@
 export const RES_CODE_MSG = {
   LOGIN_SUCCESS: "Successfully login.",
   LOGOUT_SUCCESS: "Successfully logout.",
+  NO_TOKEN_PROVIDED: "No token provided.",
+  INVALID_TOKEN_SIGNATURE: "Invalid token signature.",
+  TOKEN_EXPIRED: "Token expired.",
+  INVALID_USER_OR_PASS: "Invalid username or password.",
   // NOTE: HTTP Response Code
   "200": "Success",
   "204": "No Content",

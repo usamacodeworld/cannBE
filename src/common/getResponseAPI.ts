@@ -27,6 +27,10 @@ export const getResponseAPI = (code: ResCode, data?: getResponseAPIData) => {
     case RES_CODE.LOGOUT_SUCCESS:
       return { ...defaultResponse, code: 0 };
     case RES_CODE[401]:
+    case RES_CODE.INVALID_TOKEN_SIGNATURE:
+    case RES_CODE.INVALID_USER_OR_PASS:
+    case RES_CODE.NO_TOKEN_PROVIDED:
+    case RES_CODE.TOKEN_EXPIRED:
       return { code: 401, ...defaultResponse };
     case RES_CODE[400]:
     default:
