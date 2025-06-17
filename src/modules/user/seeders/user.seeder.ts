@@ -1,6 +1,8 @@
 import { DataSource } from "typeorm";
 import { BaseSeeder } from "../../../common/seeders/base.seeder";
 import { User } from "../entities/user.entity";
+import { Role } from "../../role/entities/role.entity";
+import { USER_TYPE } from "../../../constants/user";
 
 export class UserSeeder extends BaseSeeder {
   constructor(dataSource: DataSource) {
@@ -9,10 +11,22 @@ export class UserSeeder extends BaseSeeder {
 
   async run(): Promise<void> {
     const userRepository = this.dataSource.getRepository(User);
+    const roleRepository = this.dataSource.getRepository(Role);
 
-    // Clear existing users
-    await userRepository.clear();
+    // Clear existing users with CASCADE
+    await this.dataSource.query('TRUNCATE TABLE "users" CASCADE');
     console.log("Cleared existing users");
+
+    // Get roles
+    const superAdminRole = await roleRepository.findOne({ where: { name: "Super Admin" } });
+    const storeAdminRole = await roleRepository.findOne({ where: { name: "Store Admin" } });
+    const storeManagerRole = await roleRepository.findOne({ where: { name: "Store Manager" } });
+    const sellerRole = await roleRepository.findOne({ where: { name: "Seller" } });
+    const customerRole = await roleRepository.findOne({ where: { name: "Customer" } });
+
+    if (!superAdminRole || !storeAdminRole || !storeManagerRole || !sellerRole || !customerRole) {
+      throw new Error("Required roles not found. Please run role seeder first.");
+    }
 
     // Create admin user
     const adminUser = userRepository.create({
@@ -23,35 +37,72 @@ export class UserSeeder extends BaseSeeder {
       password: "password",
       phone: "+1234567890",
       emailVerified: true,
-      type: "admin",
+      isActive: true,
+      type: USER_TYPE.ADMIN,
+      roles: [superAdminRole]
     });
 
-    // Create regular user
-    const regularUser = userRepository.create({
-      firstName: "Regular",
-      lastName: "User",
-      userName: "user",
-      email: "user@example.com",
+    // Create store admin
+    const storeAdminUser = userRepository.create({
+      firstName: "Store",
+      lastName: "Admin",
+      userName: "storeadmin",
+      email: "storeadmin@example.com",
       password: "password",
-      phone: "+0987654321",
+      phone: "+1234567891",
       emailVerified: true,
-      type: "buyer",
+      isActive: true,
+      type: USER_TYPE.ADMIN,
+      roles: [storeAdminRole]
     });
 
-    // Create regular user
+    // Create store manager
+    const storeManagerUser = userRepository.create({
+      firstName: "Store",
+      lastName: "Manager",
+      userName: "storemanager",
+      email: "storemanager@example.com",
+      password: "password",
+      phone: "+1234567892",
+      emailVerified: true,
+      isActive: true,
+      type: USER_TYPE.ADMIN,
+      roles: [storeManagerRole]
+    });
+
+    // Create seller
     const sellerUser = userRepository.create({
-      firstName: "Regular",
+      firstName: "John",
       lastName: "Seller",
-      userName: "user",
-      email: "user@example.com",
+      userName: "seller",
+      email: "seller@example.com",
       password: "password",
-      phone: "+0987654321",
+      phone: "+1234567893",
       emailVerified: true,
-      type: "seller",
+      isActive: true,
+      type: USER_TYPE.SELLER,
+      roles: [sellerRole]
     });
 
-    // Save users using the base seeder methods
-    await this.saveMany([adminUser, regularUser, sellerUser], User);
+    // Create customer
+    const customerUser = userRepository.create({
+      firstName: "John",
+      lastName: "Customer",
+      userName: "customer",
+      email: "customer@example.com",
+      password: "password",
+      phone: "+1234567894",
+      emailVerified: true,
+      isActive: true,
+      type: USER_TYPE.BUYER,
+      roles: [customerRole]
+    });
+
+    // Save users
+    await this.saveMany(
+      [adminUser, storeAdminUser, storeManagerUser, sellerUser, customerUser],
+      User
+    );
     console.log("Users seeded successfully");
   }
 }

@@ -9,7 +9,7 @@ import {
 import * as bcrypt from "bcryptjs";
 import { BaseEntity } from "../../../common/entities/base.entity";
 import { USER_TYPE } from "../../../constants/user";
-import { Role } from "@/modules/role/entities/role.entity";
+import { Role } from "../../../modules/role/entities/role.entity";
 
 @Entity("users")
 export class User extends BaseEntity {
@@ -46,7 +46,7 @@ export class User extends BaseEntity {
   @Column({ default: false, nullable: true })
   isActive?: boolean;
 
-  @ManyToMany(() => Role)
+  @ManyToMany(() => Role, role => role.users)
   @JoinTable({
     name: "user_roles",
     joinColumn: { name: "userId" },
