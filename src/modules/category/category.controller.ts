@@ -1,0 +1,144 @@
+import { Request, Response } from "express";
+import { Repository } from "typeorm";
+import { Category } from "./entities/category.entity";
+import { CategoryService } from "./category.service";
+import { v4 as uuidv4 } from 'uuid';
+
+export function categoryController(categoryRepository: Repository<Category>) {
+  const categoryService = new CategoryService(categoryRepository);
+
+  return {
+    createCategory: async (req: Request, res: Response) => {
+      try {
+        const category = await categoryService.create(req.body);
+        res.status(201).json({
+          message: "Category created successfully",
+          requestId: uuidv4(),
+          data: category,
+          code: 0
+        });
+      } catch (error: unknown) {
+        res.status(400).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+
+    getCategories: async (req: Request, res: Response) => {
+      try {
+        const categories = await categoryService.findAll();
+        res.json({
+          message: "Categories retrieved successfully",
+          requestId: uuidv4(),
+          data: categories,
+          code: 0
+        });
+      } catch (error: unknown) {
+        res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+
+    getCategory: async (req: Request, res: Response) => {
+      try {
+        const category = await categoryService.findOne(req.params.id);
+        res.json({
+          message: "Category retrieved successfully",
+          requestId: uuidv4(),
+          data: category,
+          code: 0
+        });
+      } catch (error: unknown) {
+        res.status(404).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+
+    updateCategory: async (req: Request, res: Response) => {
+      try {
+        const category = await categoryService.update(req.params.id, req.body);
+        res.json({
+          message: "Category updated successfully",
+          requestId: uuidv4(),
+          data: category,
+          code: 0
+        });
+      } catch (error: unknown) {
+        res.status(400).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+
+    deleteCategory: async (req: Request, res: Response) => {
+      try {
+        await categoryService.remove(req.params.id);
+        res.status(204).json({
+          message: "Category deleted successfully",
+          requestId: uuidv4(),
+          data: null,
+          code: 0
+        });
+      } catch (error: unknown) {
+        res.status(404).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+
+    getParentCategories: async (req: Request, res: Response) => {
+      try {
+        const categories = await categoryService.findParentCategories();
+        res.json({
+          message: "Parent categories retrieved successfully",
+          requestId: uuidv4(),
+          data: categories,
+          code: 0
+        });
+      } catch (error: unknown) {
+        res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+
+    getSubCategories: async (req: Request, res: Response) => {
+      try {
+        const categories = await categoryService.findSubCategories(req.params.id);
+        res.json({
+          message: "Sub categories retrieved successfully",
+          requestId: uuidv4(),
+          data: categories,
+          code: 0
+        });
+      } catch (error: unknown) {
+        res.status(404).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    }
+  };
+} 

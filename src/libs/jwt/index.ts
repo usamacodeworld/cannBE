@@ -45,7 +45,7 @@ export const getAccessToken = (user: UserInfo): string => {
   const payload = transformUserInfo(user);
   const options: jwt.SignOptions = {
     expiresIn: (process.env.JWT_ACCESS_TOKEN_EXPIRE ||
-      "5m") as jwt.SignOptions["expiresIn"],
+      "1h") as jwt.SignOptions["expiresIn"],
   };
 
   return jwt.sign(payload, secretKey, options);

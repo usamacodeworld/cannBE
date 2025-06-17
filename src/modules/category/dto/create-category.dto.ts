@@ -1,7 +1,34 @@
-import { IsEmail, IsString, IsOptional, MinLength, IsBoolean, Matches } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsUUID } from 'class-validator';
 
 export class CreateCategoryDto {
-    @IsString({ message: 'Category name must be a string' })
-    @MinLength(2)
+    @IsString()
     name: string;
+
+    @IsString()
+    @IsOptional()
+    description?: string;
+
+    @IsString()
+    @IsOptional()
+    image?: string;
+
+    @IsBoolean()
+    @IsOptional()
+    isParent?: boolean;
+
+    @IsUUID()
+    @IsOptional()
+    parent_id?: string;
+
+    @IsBoolean()
+    @IsOptional()
+    isActive?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    isFeatured?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    isPopular?: boolean;
 } 

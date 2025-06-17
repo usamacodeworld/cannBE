@@ -3,6 +3,7 @@ import { AppSeederDataSource } from '../../config/seeder.config';
 import { UserSeeder } from '../../modules/user/seeders/user.seeder';
 import { RoleSeeder } from '../../modules/role/seeders/role.seeder';
 import { PermissionSeeder } from '../../modules/permissions/seeders/permission.seeder';
+import { CategorySeeder } from '../../modules/category/seeders/category.seeder';
 
 export class SeederRunner {
   private dataSource: DataSource;
@@ -35,6 +36,7 @@ export class SeederRunner {
       new PermissionSeeder(this.dataSource),
       new RoleSeeder(this.dataSource),
       new UserSeeder(this.dataSource),
+      new CategorySeeder(this.dataSource),
     ];
 
     for (const seeder of seeders) {

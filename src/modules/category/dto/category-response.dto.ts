@@ -10,5 +10,6 @@ export class CategoryResponseDto implements BaseDto {
     isDeleted: boolean;
     isFeatured: boolean;
     isPopular: boolean;
-
+    createdAt: Date;
+    updatedAt: Date;
 } 

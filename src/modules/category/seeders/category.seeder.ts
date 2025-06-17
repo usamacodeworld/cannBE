@@ -15,6 +15,8 @@ export class CategorySeeder extends BaseSeeder {
 
         // Create Category Record
         const categoryCreate = categoryRepository.create({
+            isParent: false,
+            parent_id: null,
             name: "Electronics",
             slug: "electronics",
             description: "All kinds of electronic items",

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { AppDataSource } from "./config/database";
 import authRoutes from "./modules/auth/routes/auth.routes";
 import userRoutes from "./modules/user/routes/user.routes";
+import categoryRoutes from "./modules/category/routes/category.routes";
 import { requestLogger } from "./common/middlewares/request-logger.middleware";
 
 dotenv.config();
@@ -19,9 +20,13 @@ app.use(requestLogger);
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/categories", categoryRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+app.get("/", (req, res) => {
   res.json({ status: "ok" });
 });
 

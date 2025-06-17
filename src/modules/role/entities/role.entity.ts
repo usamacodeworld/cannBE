@@ -4,9 +4,13 @@ import { BaseEntity } from "../../../common/entities/base.entity";
 import { Permission } from "../../../modules/permissions/entities/permission.entity";
 import { User } from "../../../modules/user/entities/user.entity";
 
+export const ADMIN_ROLE = 'ADMIN';
+
 @Entity({ name: "roles" })
 @Unique(["name"])
 export class Role extends BaseEntity {
+  static readonly ADMIN = ADMIN_ROLE;
+
   @Column()
   name: string;
 

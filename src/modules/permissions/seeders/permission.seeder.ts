@@ -36,6 +36,13 @@ export class PermissionSeeder extends BaseSeeder {
       [PERMISSION_TYPE.DELETE_PRODUCT]: "Can delete products",
       [PERMISSION_TYPE.MANAGE_PRODUCT_CATEGORIES]: "Can manage product categories",
       
+      // Category permissions
+      [PERMISSION_TYPE.CREATE_CATEGORY]: "Can create new categories",
+      [PERMISSION_TYPE.READ_CATEGORY]: "Can view categories",
+      [PERMISSION_TYPE.UPDATE_CATEGORY]: "Can update existing categories",
+      [PERMISSION_TYPE.DELETE_CATEGORY]: "Can delete categories",
+      [PERMISSION_TYPE.MANAGE_CATEGORIES]: "Can manage all categories",
+      
       // Order permissions
       [PERMISSION_TYPE.CREATE_ORDER]: "Can create new orders",
       [PERMISSION_TYPE.READ_ORDER]: "Can view orders",
