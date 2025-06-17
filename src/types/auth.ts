@@ -1,17 +1,33 @@
-
 import { USER_TYPE } from '@/constants/user'
 import { User } from '@/modules/user/entities/user.entity'
+import { Role } from "@/modules/role/entities/role.entity"
 
 export type GrantType = 'password' | 'refreshToken'
 export type AuthType = 'bearer' | 'cookie'
-export type RegisteredUserInfo = Pick<User, 'id' | 'type' | 'firstName' | 'lastName' | 'email'>
+export type RegisteredUserInfo = {
+  id: string
+  type: USER_TYPE
+  firstName: string
+  lastName: string
+  email: string
+  roles?: Role[]
+}
 
 export type GuestUserInfo = {
   id: string
   type: null
   isGuest: true
 }
-export type UserInfo = RegisteredUserInfo | GuestUserInfo
+
+export type UserInfo = {
+  id: string
+  type?: USER_TYPE
+  firstName?: string
+  lastName?: string
+  email?: string
+  roles?: Role[]
+  isGuest?: boolean
+}
 
 export type LoginRequest = {
   username?: string
@@ -21,4 +37,5 @@ export type LoginRequest = {
   authType?: AuthType
   userType?: `${USER_TYPE}`
 }
+
 export type SignInResponse = Promise<UserInfo>
