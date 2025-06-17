@@ -1,6 +1,8 @@
 import { DataSource } from 'typeorm';
 import { AppSeederDataSource } from '../../config/seeder.config';
 import { UserSeeder } from '../../modules/user/seeders/user.seeder';
+import { RoleSeeder } from '../../modules/role/seeders/role.seeder';
+import { PermissionSeeder } from '../../modules/permissions/seeders/permission.seeder';
 
 export class SeederRunner {
   private dataSource: DataSource;
@@ -30,8 +32,9 @@ export class SeederRunner {
   private async runSeeders(): Promise<void> {
     // Add seeders here in the order you want them to run
     const seeders = [
+      new PermissionSeeder(this.dataSource),
+      new RoleSeeder(this.dataSource),
       new UserSeeder(this.dataSource),
-      // Add more seeders here
     ];
 
     for (const seeder of seeders) {

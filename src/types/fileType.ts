@@ -1,0 +1,10 @@
+export type FileType =
+  | 'image/jpeg'
+  | 'image/jpg'
+  | 'image/png'
+  | 'image/svg'
+  | 'image/webp'
+  | 'video/mp4'
+  | 'video/webm'
+  | 'application/pdf'
+  | 'image/svg+xml'

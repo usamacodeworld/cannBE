@@ -1,88 +1,47 @@
-import { Request, Response } from "express";
-import { AppDataSource } from "../../../config/database";
-import { User } from "../entities/user.entity";
-import { CreateUserDto } from '../dto/create-user.dto';
-import { UserResponseDto } from '../dto/user-response.dto';
-import * as bcrypt from 'bcrypt';
-import * as jwt from 'jsonwebtoken';
+import { NextFunction, Request, Response } from "express";
+import * as userService from "../services/user.service";
+import { getResponseAPI } from "../../../common/getResponseAPI";
+import { GetUsersQueryDto } from "../dto/get-users-query.dto";
 
-const userRepository = AppDataSource.getRepository(User);
-
-export const register = async (req: Request, res: Response): Promise<void> => {
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const userData: CreateUserDto = req.body;
-
-    // Check if user already exists
-    const existingUser = await userRepository.findOne({ where: { email: userData.email } });
-    if (existingUser) {
-      res.status(400).json({ message: 'User already exists' });
-      return;
-    }
-
-    // Create new user
-    const user = userRepository.create({
-      ...userData,
-      password: await bcrypt.hash(userData.password, 10)
-    });
-
-    await userRepository.save(user);
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '1d' }
-    );
-
-    // Return user data without password
-    const userResponse: UserResponseDto = {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone,
-      emailVerified: user.emailVerified,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    };
-
-    res.status(201).json({ user: userResponse, token });
+    const newUser = await userService.createUser(req.body);
+    res.json(getResponseAPI("0", newUser));
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    next(error);
   }
 };
 
-export const getProfile = async (req: Request, res: Response): Promise<void> => {
+export const getProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const userId = req.user?.id;
+    if (!userId) throw new Error("Unauthorized");
 
-    if (!userId) {
-      res.status(401).json({ message: 'Unauthorized' });
-      return;
-    }
-
-    const user = await userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    // Return user data without password
-    const userResponse: UserResponseDto = {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone,
-      emailVerified: user.emailVerified,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    };
-
-    res.json({ user: userResponse });
+    const userProfile = await userService.getUserProfile(userId);
+    res.json(getResponseAPI("0", { user: userProfile }));
   } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    next(error);
+  }
+};
+
+export const getUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const query = req.validatedQuery as GetUsersQueryDto;
+    const users = await userService.getUsers(query);
+    res.json(getResponseAPI("0", users));
+  } catch (error) {
+    next(error);
   }
 };

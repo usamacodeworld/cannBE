@@ -1,11 +1,23 @@
-import { Entity, Column, BeforeInsert, BeforeUpdate } from "typeorm";
+import {
+  Entity,
+  Column,
+  BeforeInsert,
+  BeforeUpdate,
+  ManyToMany,
+  JoinTable,
+} from "typeorm";
 import * as bcrypt from "bcryptjs";
 import { BaseEntity } from "../../../common/entities/base.entity";
+import { USER_TYPE } from "../../../constants/user";
+import { Role } from "../../../modules/role/entities/role.entity";
 
 @Entity("users")
 export class User extends BaseEntity {
-  @Column()
-  accountType: string;
+  @Column({
+    comment: "admin, seller, buyer. Roles outside of the scope has no effect",
+    enum: USER_TYPE,
+  })
+  type: `${USER_TYPE}`;
 
   @Column({ nullable: false })
   firstName: string;
@@ -14,7 +26,7 @@ export class User extends BaseEntity {
   lastName: string;
 
   @Column()
-  userName: string
+  userName: string;
 
   @Column({ unique: true, nullable: false })
   email: string;
@@ -30,6 +42,17 @@ export class User extends BaseEntity {
 
   @Column({ default: false, nullable: true })
   emailVerified?: boolean;
+
+  @Column({ default: false, nullable: true })
+  isActive?: boolean;
+
+  @ManyToMany(() => Role, role => role.users)
+  @JoinTable({
+    name: "user_roles",
+    joinColumn: { name: "userId" },
+    inverseJoinColumn: { name: "roleId" },
+  })
+  roles?: Role[];
 
   @BeforeInsert()
   @BeforeUpdate()
