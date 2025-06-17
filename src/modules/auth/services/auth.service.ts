@@ -2,7 +2,6 @@ import { AppDataSource } from "../../../config/database";
 import { User } from "../../user/entities/user.entity";
 import { LoginDto } from "../dto/login.dto";
 import { UserResponseDto } from "../../user/dto/user-response.dto";
-import * as bcrypt from "bcrypt";
 import { getAccessToken } from "../../../libs/jwt";
 import { AuthError } from "../errors/auth.error";
 
@@ -18,8 +17,8 @@ export class AuthService {
       throw new AuthError("Invalid credentials", 401);
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    // Verify password using the User entity's comparePassword method
+    const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
       throw new AuthError("Invalid credentials", 401);
     }
