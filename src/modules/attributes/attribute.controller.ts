@@ -21,8 +21,16 @@ export function attributeController(
           data: attributes,
           code: 0
         });
-      } catch (error: unknown) {
-        res.status(500).json({
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute name must be unique',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
@@ -40,8 +48,240 @@ export function attributeController(
           data: values,
           code: 0
         });
-      } catch (error: unknown) {
-        res.status(500).json({
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute name must be unique',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    getAttributeById: async (req: Request, res: Response) => {
+      try {
+        const attribute = await attributeService.getAttributeById(req.params.id);
+        if (!attribute) {
+          return res.status(404).json({
+            message: 'Attribute not found',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.json({
+          message: 'Attribute retrieved successfully',
+          requestId: uuidv4(),
+          data: attribute,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute name must be unique',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    createAttribute: async (req: Request, res: Response) => {
+      try {
+        const attribute = await attributeService.createAttribute(req.body);
+        return res.status(201).json({
+          message: 'Attribute created successfully',
+          requestId: uuidv4(),
+          data: attribute,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute name must be unique',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    updateAttribute: async (req: Request, res: Response) => {
+      try {
+        const attribute = await attributeService.updateAttribute(req.params.id, req.body);
+        return res.json({
+          message: 'Attribute updated successfully',
+          requestId: uuidv4(),
+          data: attribute,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute name must be unique',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    deleteAttribute: async (req: Request, res: Response) => {
+      try {
+        await attributeService.deleteAttribute(req.params.id);
+        return res.json({
+          message: 'Attribute deleted successfully',
+          requestId: uuidv4(),
+          data: null,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute name must be unique',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    getAttributeValueById: async (req: Request, res: Response) => {
+      try {
+        const value = await attributeService.getAttributeValueById(req.params.valueId);
+        if (!value || value.attribute.id !== req.params.id) {
+          return res.status(404).json({
+            message: 'Attribute value not found',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.json({
+          message: 'Attribute value retrieved successfully',
+          requestId: uuidv4(),
+          data: value,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute value must be unique for this attribute',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    createAttributeValue: async (req: Request, res: Response) => {
+      try {
+        const value = await attributeService.createAttributeValue(req.params.id, req.body);
+        return res.status(201).json({
+          message: 'Attribute value created successfully',
+          requestId: uuidv4(),
+          data: value,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute value must be unique for this attribute',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    updateAttributeValue: async (req: Request, res: Response) => {
+      try {
+        const value = await attributeService.updateAttributeValue(req.params.valueId, req.body);
+        return res.json({
+          message: 'Attribute value updated successfully',
+          requestId: uuidv4(),
+          data: value,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute value must be unique for this attribute',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
+          message: (error as Error).message,
+          requestId: uuidv4(),
+          data: null,
+          code: 1
+        });
+      }
+    },
+    deleteAttributeValue: async (req: Request, res: Response) => {
+      try {
+        await attributeService.deleteAttributeValue(req.params.valueId);
+        return res.json({
+          message: 'Attribute value deleted successfully',
+          requestId: uuidv4(),
+          data: null,
+          code: 0
+        });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          return res.status(409).json({
+            message: 'Attribute value must be unique for this attribute',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+        }
+        return res.status(500).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
