@@ -1,6 +1,6 @@
 import { DataSource } from "typeorm";
-import { BaseSeeder } from "../../../common/seeders/base.seeder";
-import { Category } from "../entities/category.entity";
+import { BaseSeeder } from "../../common/seeders/base.seeder";
+import { Category } from "./category.entity";
 
 export class CategorySeeder extends BaseSeeder {
     constructor(dataSource: DataSource) {

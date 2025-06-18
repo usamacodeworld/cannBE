@@ -7,9 +7,9 @@ import {
   JoinTable,
 } from "typeorm";
 import * as bcrypt from "bcryptjs";
-import { BaseEntity } from "../../../common/entities/base.entity";
-import { USER_TYPE } from "../../../constants/user";
-import { Role } from "../../../modules/role/entities/role.entity";
+import { BaseEntity } from "../../common/entities/base.entity";
+import { USER_TYPE } from "../../constants/user";
+import { Role } from "../role/entities/role.entity";
 
 @Entity("users")
 export class User extends BaseEntity {

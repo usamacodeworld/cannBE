@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import * as userService from "../services/user.service";
-import { getResponseAPI } from "../../../common/getResponseAPI";
-import { GetUsersQueryDto } from "../dto/get-users-query.dto";
+import * as userService from "./user.service";
+import { getResponseAPI } from "../../common/getResponseAPI";
+import { GetUsersQueryDto } from "./dto/get-users-query.dto";
 
 export const register = async (
   req: Request,

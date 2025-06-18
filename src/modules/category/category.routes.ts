@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { Category } from "../entities/category.entity";
-import { categoryController } from "../category.controller";
-import { authenticate } from "../../auth/middlewares/auth.middleware";
-import { validateDto } from "../../../common/middlewares/validation.middleware";
-import { CreateCategoryDto } from "../dto/create-category.dto";
-import { UpdateCategoryDto } from "../dto/update-category.dto";
-import { RequirePermissions } from "../../permissions/decorators/require-permissions.decorator";
-import { PERMISSION_TYPE } from "../../permissions/entities/permission.entity";
-import { AppDataSource } from "../../../config/database";
+import { Category } from "./category.entity";
+import { categoryController } from "./category.controller";
+import { authenticate } from "../auth/middlewares/auth.middleware";
+import { validateDto } from "../../common/middlewares/validation.middleware";
+import { CreateCategoryDto } from "./dto/create-category.dto";
+import { UpdateCategoryDto } from "./dto/update-category.dto";
+import { RequirePermissions } from "../permissions/decorators/require-permissions.decorator";
+import { PERMISSION_TYPE } from "../permissions/entities/permission.entity";
+import { AppDataSource } from "../../config/database";
 
 const router = Router();
 const categoryRepository = AppDataSource.getRepository(Category);

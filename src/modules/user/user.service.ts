@@ -1,9 +1,9 @@
-import { AppDataSource } from "../../../config/database";
-import { User } from "../entities/user.entity";
-import { CreateUserDto } from "../dto/create-user.dto";
-import { UserResponseDto } from "../dto/user-response.dto";
-import { GetUsersQueryDto } from "../dto/get-users-query.dto";
-import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto";
+import { AppDataSource } from "../../config/database";
+import { User } from "./user.entity";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UserResponseDto } from "./dto/user-response.dto";
+import { GetUsersQueryDto } from "./dto/get-users-query.dto";
+import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
 import * as bcrypt from "bcrypt";
 import { Like } from "typeorm";
 import { USER_TYPE } from "@/constants/user";

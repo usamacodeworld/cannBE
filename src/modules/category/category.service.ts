@@ -1,5 +1,5 @@
 import { Repository, Like } from 'typeorm';
-import { Category } from './entities/category.entity';
+import { Category } from './category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryResponseDto } from './dto/category-response.dto';

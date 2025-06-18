@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Repository } from "typeorm";
-import { Category } from "./entities/category.entity";
+import { Category } from "./category.entity";
 import { CategoryService } from "./category.service";
 import { v4 as uuidv4 } from 'uuid';
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
