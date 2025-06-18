@@ -4,8 +4,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./config/database";
 import authRoutes from "./modules/auth/routes/auth.routes";
-import userRoutes from "./modules/user/routes/user.routes";
-import categoryRoutes from "./modules/category/routes/category.routes";
+import userRoutes from "./modules/role/routes/user.routes";
+import categoryRoutes from "./modules/category/category.routes";
 import { requestLogger } from "./common/middlewares/request-logger.middleware";
 
 dotenv.config();

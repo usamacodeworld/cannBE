@@ -1,8 +1,8 @@
 import { Column, Entity, JoinTable, ManyToMany, Unique } from "typeorm";
 
 import { BaseEntity } from "../../../common/entities/base.entity";
-import { Permission } from "../../../modules/permissions/entities/permission.entity";
-import { User } from "../../../modules/user/entities/user.entity";
+import { Permission } from "../../permissions/entities/permission.entity";
+import { User } from "../../user/user.entity";
 
 export const ADMIN_ROLE = 'ADMIN';
 

@@ -12,7 +12,10 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'cannbe',
   synchronize: false,
   logging: process.env.NODE_ENV === 'development',
-  entities: ['src/modules/**/entities/*.entity.ts'],
+  entities: [
+    'src/modules/**/entities/*.entity.ts',
+    'src/modules/user/user.entity.ts',
+  ],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
 }); 

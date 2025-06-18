@@ -1,5 +1,5 @@
 import { AppDataSource } from "../../../config/database";
-import { User } from "../../user/entities/user.entity";
+import { User } from "../../user/user.entity";
 import { LoginDto } from "../dto/login.dto";
 import { UserResponseDto } from "../../user/dto/user-response.dto";
 import { getAccessToken, getRefreshToken } from "../../../libs/jwt";
