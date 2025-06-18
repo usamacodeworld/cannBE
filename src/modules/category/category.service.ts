@@ -1,8 +1,10 @@
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryResponseDto } from './dto/category-response.dto';
+import { GetCategoriesQueryDto } from './dto/get-categories-query.dto';
+import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 
 export class CategoryService {
     private categoryRepository: Repository<Category>;
@@ -63,12 +65,55 @@ export class CategoryService {
         return this.transformToResponseDto(savedCategory);
     }
 
-    async findAll(): Promise<CategoryResponseDto[]> {
-        const categories = await this.categoryRepository.find({
-            where: { isDeleted: false },
-            order: { createdAt: 'DESC' }
+    async findAll(query: GetCategoriesQueryDto): Promise<PaginatedResponseDto<CategoryResponseDto>> {
+        const { page = 1, limit = 10, search, isActive, isFeatured, isPopular, sort = 'createdAt', order = 'desc' } = query;
+        const skip = (page - 1) * limit;
+
+        // Build where conditions
+        const whereConditions: any = { isDeleted: false };
+
+        if (search) {
+            whereConditions.where = [
+                { name: Like(`%${search}%`) },
+                { slug: Like(`%${search}%`) },
+                { description: Like(`%${search}%`) }
+            ];
+        }
+
+        if (isActive !== undefined) {
+            whereConditions.isActive = isActive;
+        }
+
+        if (isFeatured !== undefined) {
+            whereConditions.isFeatured = isFeatured;
+        }
+
+        if (isPopular !== undefined) {
+            whereConditions.isPopular = isPopular;
+        }
+
+        // Get total count
+        const [categories, total] = await this.categoryRepository.findAndCount({
+            where: whereConditions,
+            skip,
+            take: limit,
+            order: {
+                [sort]: order
+            }
         });
-        return categories.map(category => this.transformToResponseDto(category));
+
+        // Transform categories to response DTO
+        const categoryDtos = categories.map(category => this.transformToResponseDto(category));
+
+        return {
+            data: categoryDtos,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
     }
 
     async findOne(id: string): Promise<CategoryResponseDto> {
@@ -104,19 +149,111 @@ export class CategoryService {
         await this.categoryRepository.remove(category);
     }
 
-    async findSubCategories(parentId: string): Promise<CategoryResponseDto[]> {
-        const categories = await this.categoryRepository.find({
-            where: { parent_id: parentId, isDeleted: false },
-            order: { createdAt: 'DESC' }
+    async findSubCategories(parentId: string, query: GetCategoriesQueryDto): Promise<PaginatedResponseDto<CategoryResponseDto>> {
+        const { page = 1, limit = 10, search, isActive, isFeatured, isPopular, sort = 'createdAt', order = 'desc' } = query;
+        const skip = (page - 1) * limit;
+
+        // Build where conditions
+        const whereConditions: any = { 
+            parent_id: parentId, 
+            isDeleted: false 
+        };
+
+        if (search) {
+            whereConditions.where = [
+                { name: Like(`%${search}%`) },
+                { slug: Like(`%${search}%`) },
+                { description: Like(`%${search}%`) }
+            ];
+        }
+
+        if (isActive !== undefined) {
+            whereConditions.isActive = isActive;
+        }
+
+        if (isFeatured !== undefined) {
+            whereConditions.isFeatured = isFeatured;
+        }
+
+        if (isPopular !== undefined) {
+            whereConditions.isPopular = isPopular;
+        }
+
+        // Get total count
+        const [categories, total] = await this.categoryRepository.findAndCount({
+            where: whereConditions,
+            skip,
+            take: limit,
+            order: {
+                [sort]: order
+            }
         });
-        return categories.map(category => this.transformToResponseDto(category));
+
+        // Transform categories to response DTO
+        const categoryDtos = categories.map(category => this.transformToResponseDto(category));
+
+        return {
+            data: categoryDtos,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
     }
 
-    async findParentCategories(): Promise<CategoryResponseDto[]> {
-        const categories = await this.categoryRepository.find({
-            where: { isParent: true, isDeleted: false },
-            order: { createdAt: 'DESC' }
+    async findParentCategories(query: GetCategoriesQueryDto): Promise<PaginatedResponseDto<CategoryResponseDto>> {
+        const { page = 1, limit = 10, search, isActive, isFeatured, isPopular, sort = 'createdAt', order = 'desc' } = query;
+        const skip = (page - 1) * limit;
+
+        // Build where conditions
+        const whereConditions: any = { 
+            isParent: true, 
+            isDeleted: false 
+        };
+
+        if (search) {
+            whereConditions.where = [
+                { name: Like(`%${search}%`) },
+                { slug: Like(`%${search}%`) },
+                { description: Like(`%${search}%`) }
+            ];
+        }
+
+        if (isActive !== undefined) {
+            whereConditions.isActive = isActive;
+        }
+
+        if (isFeatured !== undefined) {
+            whereConditions.isFeatured = isFeatured;
+        }
+
+        if (isPopular !== undefined) {
+            whereConditions.isPopular = isPopular;
+        }
+
+        // Get total count
+        const [categories, total] = await this.categoryRepository.findAndCount({
+            where: whereConditions,
+            skip,
+            take: limit,
+            order: {
+                [sort]: order
+            }
         });
-        return categories.map(category => this.transformToResponseDto(category));
+
+        // Transform categories to response DTO
+        const categoryDtos = categories.map(category => this.transformToResponseDto(category));
+
+        return {
+            data: categoryDtos,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
     }
 } 

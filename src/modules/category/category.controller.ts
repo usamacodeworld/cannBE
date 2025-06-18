@@ -3,6 +3,7 @@ import { Repository } from "typeorm";
 import { Category } from "./entities/category.entity";
 import { CategoryService } from "./category.service";
 import { v4 as uuidv4 } from 'uuid';
+import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
 
 export function categoryController(categoryRepository: Repository<Category>) {
   const categoryService = new CategoryService(categoryRepository);
@@ -29,7 +30,8 @@ export function categoryController(categoryRepository: Repository<Category>) {
 
     getCategories: async (req: Request, res: Response) => {
       try {
-        const categories = await categoryService.findAll();
+        const query = req.query as unknown as GetCategoriesQueryDto;
+        const categories = await categoryService.findAll(query);
         res.json({
           message: "Categories retrieved successfully",
           requestId: uuidv4(),
@@ -86,7 +88,6 @@ export function categoryController(categoryRepository: Repository<Category>) {
 
     deleteCategory: async (req: Request, res: Response) => {
       try {
-        const category = await categoryService.findOne(req.params.id);
         await categoryService.remove(req.params.id);
         res.status(200).json({
           message: "Category deleted successfully",
@@ -106,7 +107,8 @@ export function categoryController(categoryRepository: Repository<Category>) {
 
     getParentCategories: async (req: Request, res: Response) => {
       try {
-        const categories = await categoryService.findParentCategories();
+        const query = req.query as unknown as GetCategoriesQueryDto;
+        const categories = await categoryService.findParentCategories(query);
         res.json({
           message: "Parent categories retrieved successfully",
           requestId: uuidv4(),
@@ -125,7 +127,8 @@ export function categoryController(categoryRepository: Repository<Category>) {
 
     getSubCategories: async (req: Request, res: Response) => {
       try {
-        const categories = await categoryService.findSubCategories(req.params.id);
+        const query = req.query as unknown as GetCategoriesQueryDto;
+        const categories = await categoryService.findSubCategories(req.params.id, query);
         res.json({
           message: "Sub categories retrieved successfully",
           requestId: uuidv4(),
