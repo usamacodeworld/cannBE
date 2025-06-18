@@ -1,8 +1,14 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
-import { typeormConfig } from './typeorm.config';
+import { User } from '../modules/user/user.entity';
+import { Role } from '../modules/role/entities/role.entity';
+import { Permission } from '../modules/permissions/entities/permission.entity';
+import { Category } from '../modules/category/category.entity';
+import { Attribute } from '../modules/attributes/entities/attribute.entity';
+import { AttributeValue } from '../modules/attributes/entities/attribute-value.entity';
 
 export const seederConfig: DataSourceOptions = {
-  ...typeormConfig,
+  ...require('./typeorm.config').typeormConfig,
+  entities: [User, Role, Permission, Category, Attribute, AttributeValue],
   synchronize: true, // Enable this only for seeding
   logging: true
 };

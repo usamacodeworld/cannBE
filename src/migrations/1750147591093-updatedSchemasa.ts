@@ -18,6 +18,23 @@ export class UpdatedSchemasa1750147591093 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "user_roles" ADD CONSTRAINT "FK_86033897c009fcca8b6505d6be2" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "role_permissions" ADD CONSTRAINT "FK_b4599f8b8f548d35850afa2d12c" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
         await queryRunner.query(`ALTER TABLE "role_permissions" ADD CONSTRAINT "FK_b4f3a5b54478bd9a66cb6ad8e4a" FOREIGN KEY ("permissionName") REFERENCES "permissions"("name") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`CREATE TABLE "attributes" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "name" character varying NOT NULL UNIQUE,
+            CONSTRAINT "PK_attributes_id" PRIMARY KEY ("id")
+        )`);
+        await queryRunner.query(`CREATE TABLE "attribute_values" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "value" character varying NOT NULL,
+            "colorCode" character varying,
+            "attributeId" uuid NOT NULL,
+            CONSTRAINT "PK_attribute_values_id" PRIMARY KEY ("id"),
+            CONSTRAINT "FK_attribute_values_attributeId" FOREIGN KEY ("attributeId") REFERENCES "attributes"("id") ON DELETE CASCADE
+        )`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
@@ -35,6 +52,8 @@ export class UpdatedSchemasa1750147591093 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE "permissions"`);
         await queryRunner.query(`DROP TABLE "roles"`);
         await queryRunner.query(`DROP TABLE "users"`);
+        await queryRunner.query(`DROP TABLE "attribute_values"`);
+        await queryRunner.query(`DROP TABLE "attributes"`);
     }
 
 }

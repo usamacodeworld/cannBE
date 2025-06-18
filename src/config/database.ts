@@ -14,7 +14,12 @@ export const AppDataSource = new DataSource({
   logging: process.env.NODE_ENV === 'development',
   entities: [
     'src/modules/**/entities/*.entity.ts',
+    'src/modules/role/entities/role.entity.ts',
+    'src/modules/permissions/entities/permission.entity.ts',
     'src/modules/user/user.entity.ts',
+    'src/modules/category/category.entity.ts',
+    'src/modules/attributes/entities/attribute.entity.ts',
+    'src/modules/attributes/entities/attribute-value.entity.ts',
   ],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
