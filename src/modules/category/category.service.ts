@@ -95,9 +95,13 @@ export class CategoryService {
     }
 
     async remove(id: string): Promise<void> {
-        const category = await this.findOne(id);
-        category.isDeleted = true;
-        await this.categoryRepository.save(category);
+        const category = await this.categoryRepository.findOne({
+            where: { id, isDeleted: false }
+        });
+        if (!category) {
+            throw new Error(`Category with ID ${id} not found`);
+        }
+        await this.categoryRepository.remove(category);
     }
 
     async findSubCategories(parentId: string): Promise<CategoryResponseDto[]> {

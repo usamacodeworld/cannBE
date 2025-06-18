@@ -86,8 +86,9 @@ export function categoryController(categoryRepository: Repository<Category>) {
 
     deleteCategory: async (req: Request, res: Response) => {
       try {
+        const category = await categoryService.findOne(req.params.id);
         await categoryService.remove(req.params.id);
-        res.status(204).json({
+        res.status(200).json({
           message: "Category deleted successfully",
           requestId: uuidv4(),
           data: null,
