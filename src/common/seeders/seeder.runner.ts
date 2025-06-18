@@ -5,6 +5,7 @@ import { PermissionSeeder } from '../../modules/permissions/seeders/permission.s
 import { CategorySeeder } from '../../modules/category/category.seeder';
 import { AttributeSeeder } from '../../modules/attributes/seeders/attribute.seeder';
 import { AttributeValueSeeder } from '../../modules/attributes/seeders/attribute-value.seeder';
+import { ProductSeeder } from '../../modules/products/seeders/product.seeder';
 
 export class SeederRunner {
   private dataSource: DataSource;
@@ -39,6 +40,7 @@ export class SeederRunner {
       new CategorySeeder(this.dataSource),
       new AttributeSeeder(this.dataSource),
       new AttributeValueSeeder(this.dataSource),
+      new ProductSeeder(this.dataSource),
     ];
 
     for (const seeder of seeders) {

@@ -35,9 +35,64 @@ export class UpdatedSchemasa1750147591093 implements MigrationInterface {
             CONSTRAINT "PK_attribute_values_id" PRIMARY KEY ("id"),
             CONSTRAINT "FK_attribute_values_attributeId" FOREIGN KEY ("attributeId") REFERENCES "attributes"("id") ON DELETE CASCADE
         )`);
+        await queryRunner.query(`CREATE TABLE "products" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "added_by" character varying,
+            "user_id" character varying,
+            "category_id" character varying,
+            "name" character varying NOT NULL,
+            "slug" character varying NOT NULL UNIQUE,
+            "photos" text,
+            "thumbnail_img" character varying,
+            "tags" text,
+            "short_description" character varying,
+            "long_description" character varying,
+            "regular_price" decimal,
+            "sale_price" decimal,
+            "is_variant" boolean DEFAULT false,
+            "published" boolean DEFAULT false,
+            "approved" boolean DEFAULT false,
+            "stock" integer,
+            "cash_on_delivery" boolean DEFAULT false,
+            "featured" boolean DEFAULT false,
+            "discount" decimal,
+            "discount_type" character varying,
+            "discount_start_date" TIMESTAMP,
+            "discount_end_date" TIMESTAMP,
+            "tax" decimal,
+            "tax_type" character varying,
+            "shipping_type" character varying,
+            "shipping_cose" decimal,
+            "est_shipping_days" integer,
+            "num_of_sales" integer,
+            "meta_title" character varying,
+            "meta_description" character varying,
+            "rating" decimal,
+            "external_link" character varying,
+            "external_link_btn" character varying,
+            CONSTRAINT "PK_products_id" PRIMARY KEY ("id")
+        )`);
+        await queryRunner.query(`CREATE TABLE "product_variants" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "variant" character varying NOT NULL,
+            "sku" character varying NOT NULL UNIQUE,
+            "price" decimal NOT NULL,
+            "quantity" integer NOT NULL,
+            "image" character varying,
+            "productId" uuid,
+            CONSTRAINT "PK_product_variants_id" PRIMARY KEY ("id"),
+            CONSTRAINT "FK_product_variants_productId" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE
+        )`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "product_variants" DROP CONSTRAINT "FK_product_variants_productId"`);
+        await queryRunner.query(`DROP TABLE "product_variants"`);
+        await queryRunner.query(`DROP TABLE "products"`);
         await queryRunner.query(`ALTER TABLE "role_permissions" DROP CONSTRAINT "FK_b4f3a5b54478bd9a66cb6ad8e4a"`);
         await queryRunner.query(`ALTER TABLE "role_permissions" DROP CONSTRAINT "FK_b4599f8b8f548d35850afa2d12c"`);
         await queryRunner.query(`ALTER TABLE "user_roles" DROP CONSTRAINT "FK_86033897c009fcca8b6505d6be2"`);

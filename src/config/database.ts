@@ -20,6 +20,8 @@ export const AppDataSource = new DataSource({
     'src/modules/category/category.entity.ts',
     'src/modules/attributes/entities/attribute.entity.ts',
     'src/modules/attributes/entities/attribute-value.entity.ts',
+    'src/modules/products/entities/product.entity.ts',
+    'src/modules/products/entities/product-variant.entity.ts',
   ],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
