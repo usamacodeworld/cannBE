@@ -1,7 +1,7 @@
 import { AppDataSource } from "../../../config/database";
 import { User } from "../../user/user.entity";
 import { LoginDto } from "../dto/login.dto";
-import { UserResponseDto } from "../../user/dto/user-response.dto";
+import { UserResponseDto, RoleWithPermissions } from "../../user/dto/user-response.dto";
 import { getAccessToken, getRefreshToken } from "../../../libs/jwt";
 import { AuthError } from "../errors/auth.error";
 import { UserInfo } from "@/types/auth";
@@ -15,8 +15,15 @@ export class AuthService {
   }> {
     const { email, password } = loginDto;
 
-    // Find user by email
-    const user = await this.userRepository.findOne({ where: { email } });
+    // Find user by email with roles and permissions
+    const user = await this.userRepository.findOne({
+      where: { email },
+      relations: {
+        roles: {
+          permissions: true
+        }
+      }
+    });
     if (!user) {
       throw new AuthError("Invalid credentials", 401);
     }
@@ -26,23 +33,6 @@ export class AuthService {
     if (!isValidPassword) {
       throw new AuthError("Invalid credentials", 401);
     }
-
-    // Generate JWT token
-    // const accessToken = getAccessToken({
-    //   id: user.id,
-    //   email: user.email,
-    //   firstName: user.firstName,
-    //   lastName: user.lastName,
-    //   roles: user.roles || [],
-    // });
-
-    // const refreshToken = getRefreshToken({
-    //   id: user.id,
-    //   email: user.email,
-    //   firstName: user.firstName,
-    //   lastName: user.lastName,
-    //   roles: user.roles || [],
-    // });
 
     // Return user data without password
     const userResponse: UserResponseDto = {
@@ -55,13 +45,33 @@ export class AuthService {
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      roles: user.roles?.map(role => ({
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions || []
+      }))
     };
-    console.log(userResponse);
+
     return {
       user: {
         ...userResponse,
-        accessToken: getAccessToken(userResponse as UserInfo),
-        refreshToken: getRefreshToken(userResponse as UserInfo),
+        accessToken: getAccessToken({
+          ...userResponse,
+          roles: userResponse.roles?.map(role => ({
+            id: role.id,
+            name: role.name,
+            permissions: role.permissions.map(p => p.name)
+          }))
+        } as UserInfo),
+        refreshToken: getRefreshToken({
+          ...userResponse,
+          roles: userResponse.roles?.map(role => ({
+            id: role.id,
+            name: role.name,
+            permissions: role.permissions.map(p => p.name)
+          }))
+        } as UserInfo),
       },
     };
   }

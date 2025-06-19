@@ -39,7 +39,7 @@ export class UserSeeder extends BaseSeeder {
       emailVerified: true,
       isActive: true,
       type: USER_TYPE.ADMIN,
-      roles: [superAdminRole]
+      roles: [superAdminRole, storeAdminRole, storeManagerRole, sellerRole, customerRole]
     });
 
     // Create store admin
@@ -98,11 +98,13 @@ export class UserSeeder extends BaseSeeder {
       roles: [customerRole]
     });
 
-    // Save users
-    await this.saveMany(
-      [adminUser, storeAdminUser, storeManagerUser, sellerUser, customerUser],
-      User
-    );
+    // Save users one by one to ensure roles are properly saved
+    await userRepository.save(adminUser);
+    await userRepository.save(storeAdminUser);
+    await userRepository.save(storeManagerUser);
+    await userRepository.save(sellerUser);
+    await userRepository.save(customerUser);
+    
     console.log("Users seeded successfully");
   }
 }
