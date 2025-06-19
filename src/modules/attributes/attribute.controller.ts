@@ -4,6 +4,7 @@ import { Attribute } from './entities/attribute.entity';
 import { AttributeValue } from './entities/attribute-value.entity';
 import { AttributeService } from './attribute.service';
 import { v4 as uuidv4 } from 'uuid';
+import { GetAttributesQueryDto } from './dto/get-attributes-query.dto';
 
 export function attributeController(
   attributeRepository: Repository<Attribute>,
@@ -14,11 +15,15 @@ export function attributeController(
   return {
     getAllAttributes: async (req: Request, res: Response) => {
       try {
-        const attributes = await attributeService.getAllAttributes();
+        const query = req.query as unknown as GetAttributesQueryDto;
+        const result = await attributeService.getAllAttributes(query);
         res.json({
           message: 'Attributes retrieved successfully',
           requestId: uuidv4(),
-          data: attributes,
+          data: {
+            data: result.data,
+            meta: result.meta
+          },
           code: 0
         });
       } catch (error: any) {
@@ -41,11 +46,15 @@ export function attributeController(
     getAttributeValues: async (req: Request, res: Response) => {
       try {
         const attributeId = req.params.id;
-        const values = await attributeService.getAttributeValues(attributeId);
+        const query = req.query as unknown as GetAttributesQueryDto;
+        const result = await attributeService.getAttributeValues(attributeId, query);
         res.json({
           message: 'Attribute values retrieved successfully',
           requestId: uuidv4(),
-          data: values,
+          data: {
+            data: result.data,
+            meta: result.meta
+          },
           code: 0
         });
       } catch (error: any) {

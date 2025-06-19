@@ -5,6 +5,7 @@ import { CreateAttributeDto } from './dto/create-attribute.dto';
 import { UpdateAttributeDto } from './dto/update-attribute.dto';
 import { CreateAttributeValueDto } from './dto/create-attribute-value.dto';
 import { UpdateAttributeValueDto } from './dto/update-attribute-value.dto';
+import { GetAttributesQueryDto } from './dto/get-attributes-query.dto';
 import { AppDataSource } from '../../config/database';
 import { Attribute } from './entities/attribute.entity';
 import { AttributeValue } from './entities/attribute-value.entity';
@@ -22,14 +23,14 @@ const attributeValueRepository = AppDataSource.getRepository(AttributeValue);
 const ctrl = attributeController(attributeRepository, attributeValueRepository);
 
 // Attribute CRUD
-router.get('/', catchAsync(ctrl.getAllAttributes));
+router.get('/', validateDto(GetAttributesQueryDto, 'query'), catchAsync(ctrl.getAllAttributes));
 router.get('/:id', catchAsync(ctrl.getAttributeById));
 router.post('/', validateDto(CreateAttributeDto), catchAsync(ctrl.createAttribute));
 router.put('/:id', validateDto(UpdateAttributeDto), catchAsync(ctrl.updateAttribute));
 router.delete('/:id', catchAsync(ctrl.deleteAttribute));
 
 // Attribute Value CRUD
-router.get('/:id/values', catchAsync(ctrl.getAttributeValues));
+router.get('/:id/values', validateDto(GetAttributesQueryDto, 'query'), catchAsync(ctrl.getAttributeValues));
 router.get('/:id/values/:valueId', catchAsync(ctrl.getAttributeValueById));
 router.post('/:id/values', validateDto(CreateAttributeValueDto), catchAsync(ctrl.createAttributeValue));
 router.put('/:id/values/:valueId', validateDto(UpdateAttributeValueDto), catchAsync(ctrl.updateAttributeValue));

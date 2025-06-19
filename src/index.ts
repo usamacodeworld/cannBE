@@ -52,10 +52,19 @@ AppDataSource.initialize()
   .then(() => {
     console.log("Database connected successfully");
 
-    // Start server
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+    // Start servers
+    const PORT_IP = Number(process.env.PORT_IP) || 3001;
+    const PORT_LOCAL = Number(process.env.PORT_LOCAL) || 3001;
+    const HOST_IP = process.env.HOST_IP || '192.168.100.79';
+
+    // Start server on IP address
+    app.listen(PORT_IP, HOST_IP, () => {
+      console.log(`Server is running on http://${HOST_IP}:${PORT_IP}`);
+    });
+
+    // Start server on localhost
+    app.listen(PORT_LOCAL, 'localhost', () => {
+      console.log(`Server is running on http://localhost:${PORT_LOCAL}`);
     });
   })
   .catch((error) => console.error("Error connecting to database:", error));

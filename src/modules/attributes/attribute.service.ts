@@ -1,6 +1,8 @@
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { Attribute } from './entities/attribute.entity';
 import { AttributeValue } from './entities/attribute-value.entity';
+import { GetAttributesQueryDto } from './dto/get-attributes-query.dto';
+import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 
 export class AttributeService {
   private attributeRepository: Repository<Attribute>;
@@ -11,15 +13,67 @@ export class AttributeService {
     this.attributeValueRepository = attributeValueRepository;
   }
 
-  async getAllAttributes(): Promise<Attribute[]> {
-    return this.attributeRepository.find();
+  async getAllAttributes(query: GetAttributesQueryDto = {}): Promise<PaginatedResponseDto<Attribute>> {
+    const { page = 1, limit = 10, search } = query;
+    const skip = (page - 1) * limit;
+
+    // Build where conditions
+    const whereConditions: any = {};
+    if (search) {
+      whereConditions.name = Like(`%${search}%`);
+    }
+
+    // Get total count
+    const [attributes, total] = await this.attributeRepository.findAndCount({
+      where: whereConditions,
+      skip,
+      take: limit,
+      order: {
+        createdAt: 'DESC'
+      }
+    });
+
+    return {
+      data: attributes,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
   }
 
-  async getAttributeValues(attributeId: string): Promise<AttributeValue[]> {
-    return this.attributeValueRepository.find({
-      where: { attribute: { id: attributeId } },
-      relations: ['attribute']
+  async getAttributeValues(attributeId: string, query: GetAttributesQueryDto = {}): Promise<PaginatedResponseDto<AttributeValue>> {
+    const { page = 1, limit = 10, search } = query;
+    const skip = (page - 1) * limit;
+
+    // Build where conditions
+    const whereConditions: any = { attribute: { id: attributeId } };
+    if (search) {
+      whereConditions.value = Like(`%${search}%`);
+    }
+
+    // Get total count
+    const [values, total] = await this.attributeValueRepository.findAndCount({
+      where: whereConditions,
+      relations: ['attribute'],
+      skip,
+      take: limit,
+      order: {
+        createdAt: 'DESC'
+      }
     });
+
+    return {
+      data: values,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
   }
 
   async getAttributeById(id: string): Promise<Attribute | null> {

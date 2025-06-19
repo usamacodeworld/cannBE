@@ -1,7 +1,7 @@
 import { AppDataSource } from "../../../config/database";
 import { User } from "../../user/user.entity";
 import { LoginDto } from "../dto/login.dto";
-import { UserResponseDto, RoleWithPermissions } from "../../user/dto/user-response.dto";
+import { UserResponseDto } from "../../user/dto/user-response.dto";
 import { getAccessToken, getRefreshToken } from "../../../libs/jwt";
 import { AuthError } from "../errors/auth.error";
 import { UserInfo } from "@/types/auth";
@@ -11,7 +11,7 @@ export class AuthService {
   private userRepository = AppDataSource.getRepository(User);
 
   async login(loginDto: LoginDto): Promise<{
-    user: UserResponseDto & { accessToken: string; refreshToken: string };
+    user: Omit<UserResponseDto, 'roles'> & { accessToken: string; refreshToken: string };
   }> {
     const { email, password } = loginDto;
 
@@ -34,8 +34,8 @@ export class AuthService {
       throw new AuthError("Invalid credentials", 401);
     }
 
-    // Return user data without password
-    const userResponse: UserResponseDto = {
+    // Return user data without password and roles
+    const userResponse = {
       id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -45,33 +45,23 @@ export class AuthService {
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+    };
+
+    // Create token info with roles (for authorization)
+    const tokenInfo = {
+      ...userResponse,
       roles: user.roles?.map(role => ({
         id: role.id,
         name: role.name,
-        description: role.description,
-        permissions: role.permissions || []
+        permissions: role.permissions.map(p => p.name)
       }))
     };
 
     return {
       user: {
         ...userResponse,
-        accessToken: getAccessToken({
-          ...userResponse,
-          roles: userResponse.roles?.map(role => ({
-            id: role.id,
-            name: role.name,
-            permissions: role.permissions.map(p => p.name)
-          }))
-        } as UserInfo),
-        refreshToken: getRefreshToken({
-          ...userResponse,
-          roles: userResponse.roles?.map(role => ({
-            id: role.id,
-            name: role.name,
-            permissions: role.permissions.map(p => p.name)
-          }))
-        } as UserInfo),
+        accessToken: getAccessToken(tokenInfo as UserInfo),
+        refreshToken: getRefreshToken(tokenInfo as UserInfo),
       },
     };
   }

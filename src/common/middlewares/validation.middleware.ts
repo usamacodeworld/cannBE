@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { validate, ValidationError } from "class-validator";
 import { plainToInstance } from "class-transformer";
+import { ParsedQs } from "qs";
 
 // Extend Express Request type to include validatedQuery
 declare global {
@@ -11,14 +12,14 @@ declare global {
   }
 }
 
-export const validateDto = (dtoClass: any) => {
+export const validateDto = (dtoClass: any, source: 'body' | 'query' = 'body') => {
   return async (req: Request, res: Response, next: NextFunction) => {
     // console.log("=== Validation Debug ===");
     // console.log("Request body:", req.body);
     // console.log("DTO Class:", dtoClass.name);
 
-    // Handle both body and query parameters
-    const data = req.body && Object.keys(req.body).length > 0 ? req.body : req.query;
+    // Get data from the specified source
+    const data = source === 'body' ? req.body : req.query;
     
     // If no data is provided, create an empty instance with default values
     const dtoObject = plainToInstance(dtoClass, data || {});
@@ -58,10 +59,11 @@ export const validateDto = (dtoClass: any) => {
 
     // console.log("Validation passed, proceeding to next middleware");
     // Store validated data in the appropriate request property
-    if (req.body && Object.keys(req.body).length > 0) {
+    if (source === 'body') {
       req.body = dtoObject;
     } else {
       req.validatedQuery = dtoObject;
+      req.query = dtoObject as unknown as ParsedQs; // Type cast to match Express query type
     }
     next();
   };
