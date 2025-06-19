@@ -1,9 +1,9 @@
 import { DataSource } from 'typeorm';
 import { AppSeederDataSource } from '../../config/seeder.config';
-import { UserSeeder } from '../../modules/user/seeders/user.seeder';
+import { UserSeeder } from '../../modules/user/user.seeder';
 import { RoleSeeder } from '../../modules/role/seeders/role.seeder';
 import { PermissionSeeder } from '../../modules/permissions/seeders/permission.seeder';
-import { CategorySeeder } from '../../modules/category/seeders/category.seeder';
+import { CategorySeeder } from '../../modules/category/category.seeder';
 
 export class SeederRunner {
   private dataSource: DataSource;
