@@ -14,9 +14,11 @@ export class AttributeValueSeeder extends BaseSeeder {
     await attributeValueRepository.clear();
     console.log('Cleared existing attribute values');
 
+    // Fetch all attributes and map by name for easy lookup
     const attributes = await attributeRepository.find();
     const attributeMap = new Map(attributes.map(attr => [attr.name, attr]));
 
+    // Helper to get attribute by name
     const getAttr = (name: string) => attributeMap.get(name);
 
     const values = [
@@ -155,6 +157,7 @@ export class AttributeValueSeeder extends BaseSeeder {
       // Add more as needed from the prompt
     ];
 
+    // Filter out any values where attribute is not found (in case of typo)
     const validValues = values.filter(v => v.attribute);
     const valueEntities = attributeValueRepository.create(validValues);
     await this.saveMany(valueEntities, AttributeValue);

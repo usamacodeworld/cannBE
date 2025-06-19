@@ -6,6 +6,8 @@ import { AppDataSource } from "./config/database";
 import authRoutes from "./modules/auth/routes/auth.routes";
 import userRoutes from "./modules/role/routes/user.routes";
 import categoryRoutes from "./modules/category/category.routes";
+import attributeRoutes from "./modules/attributes/attribute.routes";
+import productRoutes from "./modules/products/product.routes";
 import { requestLogger } from "./common/middlewares/request-logger.middleware";
 
 dotenv.config();
@@ -21,6 +23,8 @@ app.use(requestLogger);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/attributes", attributeRoutes);
+app.use("/api/products", productRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

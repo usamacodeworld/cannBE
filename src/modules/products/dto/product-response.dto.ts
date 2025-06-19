@@ -1,0 +1,41 @@
+import { ProductVariantResponseDto } from './product-variant-response.dto';
+
+export class ProductResponseDto {
+  id: string;
+  added_by?: string;
+  user_id?: string;
+  category_id?: string;
+  name: string;
+  slug: string;
+  photos: string[];
+  thumbnail_img?: string;
+  tags: string[];
+  short_description?: string;
+  long_description?: string;
+  regular_price?: number;
+  sale_price?: number;
+  is_variant?: boolean;
+  published?: boolean;
+  approved?: boolean;
+  stock?: number;
+  cash_on_delivery?: boolean;
+  featured?: boolean;
+  discount?: number;
+  discount_type?: string;
+  discount_start_date?: Date;
+  discount_end_date?: Date;
+  tax?: number;
+  tax_type?: string;
+  shipping_type?: string;
+  shipping_cose?: number;
+  est_shipping_days?: number;
+  num_of_sales?: number;
+  meta_title?: string;
+  meta_description?: string;
+  rating?: number;
+  external_link?: string;
+  external_link_btn?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  variants: ProductVariantResponseDto[];
+} 
