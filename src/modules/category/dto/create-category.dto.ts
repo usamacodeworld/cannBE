@@ -18,7 +18,7 @@ export class CreateCategoryDto {
 
     @IsUUID()
     @IsOptional()
-    parent_id?: string;
+    parentId?: string;
 
     @IsBoolean()
     @IsOptional()
