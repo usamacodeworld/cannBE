@@ -21,7 +21,7 @@ router.get(
 );
 
 router.get(
-  "/",
+  "/users",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.READ_USER),
   validateDto(GetUsersQueryDto),

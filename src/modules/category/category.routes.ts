@@ -31,7 +31,7 @@ router.post(
 );
 
 router.get(
-  "/",
+  "/categories",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.READ_CATEGORY),
   getCategories

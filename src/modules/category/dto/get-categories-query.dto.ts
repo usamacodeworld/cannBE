@@ -1,32 +1,48 @@
-import { IsOptional, IsString, IsBoolean } from 'class-validator';
-import { Type } from 'class-transformer';
-import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import {
+  IsOptional,
+  IsString,
+  IsBoolean,
+  ValidateNested,
+} from "class-validator";
+import { Type } from "class-transformer";
+import { PaginationQueryDto } from "../../../common/dto/pagination-query.dto";
 
-export class GetCategoriesQueryDto extends PaginationQueryDto {
+class CategoryFilters {
   @IsOptional()
   @IsString()
   search?: string;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @IsString()
+  parentId?: string;
+
+  @IsOptional()
   @IsBoolean()
+  @Type(() => Boolean)
   isActive?: boolean;
 
   @IsOptional()
-  @Type(() => Boolean)
   @IsBoolean()
+  @Type(() => Boolean)
   isFeatured?: boolean;
 
   @IsOptional()
-  @Type(() => Boolean)
   @IsBoolean()
+  @Type(() => Boolean)
   isPopular?: boolean;
+}
 
+export class GetCategoriesQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   sort?: string;
 
   @IsOptional()
   @IsString()
-  order?: 'asc' | 'desc';
-} 
+  order?: "asc" | "desc";
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CategoryFilters)
+  filters?: CategoryFilters;
+}

@@ -3,17 +3,16 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./config/database";
+import { Router as V1Router } from "./apiV1.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
-import userRoutes from "./modules/role/routes/user.routes";
-import categoryRoutes from "./modules/category/category.routes";
-import attributeRoutes from "./modules/attributes/attribute.routes";
-import productRoutes from "./modules/products/product.routes";
 import { requestLogger } from "./common/middlewares/request-logger.middleware";
+import { filtersToWhereJson } from "./common/middlewares/filtersToWhereJson";
+import qs from "qs";
 
 dotenv.config();
 
 const app = express();
-
+app.set("query parser", (str: string) => qs.parse(str));
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -21,10 +20,6 @@ app.use(requestLogger);
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/attributes", attributeRoutes);
-app.use("/api/products", productRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -47,6 +42,7 @@ app.use(
   }
 );
 
+app.use("/api/v1", V1Router);
 // Initialize TypeORM
 AppDataSource.initialize()
   .then(() => {
@@ -55,7 +51,7 @@ AppDataSource.initialize()
     // Start servers
     const PORT_IP = Number(process.env.PORT_IP) || 3001;
     const PORT_LOCAL = Number(process.env.PORT_LOCAL) || 3001;
-    const HOST_IP = process.env.HOST_IP || '192.168.100.79';
+    const HOST_IP = process.env.HOST_IP || "192.168.100.79";
 
     // Start server on IP address
     app.listen(PORT_IP, HOST_IP, () => {
@@ -63,7 +59,7 @@ AppDataSource.initialize()
     });
 
     // Start server on localhost
-    app.listen(PORT_LOCAL, 'localhost', () => {
+    app.listen(PORT_LOCAL, "localhost", () => {
       console.log(`Server is running on http://localhost:${PORT_LOCAL}`);
     });
   })

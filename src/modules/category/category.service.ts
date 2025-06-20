@@ -1,4 +1,4 @@
-import { Repository, Like } from "typeorm";
+import { Repository, Like, FindOptionsWhere } from "typeorm";
 import { Category } from "./category.entity";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
@@ -75,41 +75,35 @@ export class CategoryService {
     const {
       page = 1,
       limit = 10,
-      search,
-      isActive,
-      isFeatured,
-      isPopular,
-      sort = "createdAt",
+      sort = "updatedAt",
       order = "desc",
+      filters = {},
     } = query;
     const skip = (page - 1) * limit;
-
+    const { search, parentId, isActive, isFeatured, isPopular } = filters;
     // Build where conditions
-    const whereConditions: any = { isDeleted: false };
+    const baseConditions: FindOptionsWhere<any> = {
+      isDeleted: false,
+    };
+
+    if (parentId) baseConditions.parentId = parentId;
+    if (isActive !== undefined) baseConditions.isActive = isActive;
+    if (isFeatured !== undefined) baseConditions.isFeatured = isFeatured;
+    if (isPopular !== undefined) baseConditions.isPopular = isPopular;
+
+    let where: FindOptionsWhere<any>[] | FindOptionsWhere<any> = baseConditions;
 
     if (search) {
-      whereConditions.where = [
-        { name: Like(`%${search}%`) },
-        { slug: Like(`%${search}%`) },
-        { description: Like(`%${search}%`) },
+      where = [
+        { ...baseConditions, name: Like(`%${search}%`) },
+        { ...baseConditions, slug: Like(`%${search}%`) },
+        { ...baseConditions, description: Like(`%${search}%`) },
       ];
-    }
-
-    if (isActive !== undefined) {
-      whereConditions.isActive = isActive;
-    }
-
-    if (isFeatured !== undefined) {
-      whereConditions.isFeatured = isFeatured;
-    }
-
-    if (isPopular !== undefined) {
-      whereConditions.isPopular = isPopular;
     }
 
     // Get total count
     const [categories, total] = await this.categoryRepository.findAndCount({
-      where: whereConditions,
+      where,
       skip,
       take: limit,
       order: {
@@ -178,13 +172,13 @@ export class CategoryService {
     const {
       page = 1,
       limit = 10,
-      search,
-      isActive,
-      isFeatured,
-      isPopular,
+      filters = {},
       sort = "createdAt",
       order = "desc",
     } = query;
+
+    const { search, isActive, isFeatured, isPopular } = filters;
+
     const skip = (page - 1) * limit;
 
     // Build where conditions
@@ -245,15 +239,12 @@ export class CategoryService {
     const {
       page = 1,
       limit = 10,
-      search,
-      isActive,
-      isFeatured,
-      isPopular,
+      filters = {},
       sort = "createdAt",
       order = "desc",
     } = query;
     const skip = (page - 1) * limit;
-
+    const { search, parentId, isActive, isFeatured, isPopular } = filters;
     // Build where conditions
     const whereConditions: any = {
       isParent: true,
@@ -268,15 +259,19 @@ export class CategoryService {
       ];
     }
 
-    if (isActive !== undefined) {
+    if (isActive) {
       whereConditions.isActive = isActive;
     }
 
-    if (isFeatured !== undefined) {
+    if (parentId) {
+      whereConditions.parentId = parentId;
+    }
+
+    if (isFeatured) {
       whereConditions.isFeatured = isFeatured;
     }
 
-    if (isPopular !== undefined) {
+    if (isPopular) {
       whereConditions.isPopular = isPopular;
     }
 

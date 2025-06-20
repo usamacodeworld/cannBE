@@ -1,0 +1,11 @@
+import { Router as r } from "express";
+import userRoutes from "./modules/role/routes/user.routes";
+import categoryRoutes from "./modules/category/category.routes";
+import attributeRoutes from "./modules/attributes/attribute.routes";
+import productRoutes from "./modules/products/product.routes";
+
+const Router = r();
+
+Router.use("/", userRoutes, categoryRoutes, attributeRoutes, productRoutes);
+
+export { Router };
