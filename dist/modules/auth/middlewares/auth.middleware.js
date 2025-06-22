@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticate = void 0;
-const user_entity_1 = require("../../user/entities/user.entity");
+const user_entity_1 = require("../../user/user.entity");
 const responseCode_1 = require("../../../constants/responseCode");
 const jwt_1 = require("../../../libs/jwt");
 const database_1 = require("../../../config/database");

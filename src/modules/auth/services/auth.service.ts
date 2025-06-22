@@ -11,7 +11,10 @@ export class AuthService {
   private userRepository = AppDataSource.getRepository(User);
 
   async login(loginDto: LoginDto): Promise<{
-    user: Omit<UserResponseDto, 'roles'> & { accessToken: string; refreshToken: string };
+    user: Omit<UserResponseDto, "roles"> & {
+      accessToken: string;
+      refreshToken: string;
+    };
   }> {
     const { email, password } = loginDto;
 
@@ -20,10 +23,11 @@ export class AuthService {
       where: { email },
       relations: {
         roles: {
-          permissions: true
-        }
-      }
+          permissions: true,
+        },
+      },
     });
+    console.log("User ==> ", user);
     if (!user) {
       throw new AuthError("Invalid credentials", 401);
     }
@@ -50,11 +54,11 @@ export class AuthService {
     // Create token info with roles (for authorization)
     const tokenInfo = {
       ...userResponse,
-      roles: user.roles?.map(role => ({
+      roles: user.roles?.map((role) => ({
         id: role.id,
         name: role.name,
-        permissions: role.permissions.map(p => p.name)
-      }))
+        permissions: role.permissions.map((p) => p.name),
+      })),
     };
 
     return {

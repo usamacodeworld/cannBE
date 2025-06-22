@@ -35,10 +35,10 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUsers = exports.getUserProfile = exports.createUser = void 0;
 const database_1 = require("../../../config/database");
-const permission_entity_1 = require("../entities/permission.entity");
+const user_entity_1 = require("../../user/user.entity");
 const bcrypt = __importStar(require("bcrypt"));
 const typeorm_1 = require("typeorm");
-const userRepository = database_1.AppDataSource.getRepository(permission_entity_1.User);
+const userRepository = database_1.AppDataSource.getRepository(user_entity_1.User);
 const createUser = async (createUserDto) => {
     // Check for existing user
     const existingUser = await userRepository.findOne({

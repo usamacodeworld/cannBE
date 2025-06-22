@@ -1,20 +1,32 @@
 "use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.JwtAuthGuard = void 0;
-const common_1 = require("@nestjs/common");
-const passport_1 = require("@nestjs/passport");
-let JwtAuthGuard = class JwtAuthGuard extends (0, passport_1.AuthGuard)('jwt') {
-    canActivate(context) {
-        return super.canActivate(context);
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const typeorm_1 = require("typeorm");
+const user_entity_1 = require("../../user/user.entity");
+const JwtAuthGuard = async (req, res, next) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ message: 'No token provided' });
+        }
+        const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const userRepository = (0, typeorm_1.getRepository)(user_entity_1.User);
+        const user = await userRepository.findOne({
+            where: { id: decoded.userId },
+            relations: ['roles', 'roles.permissions']
+        });
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid token' });
+        }
+        req.user = user;
+        next();
+    }
+    catch (error) {
+        return res.status(401).json({ message: 'Invalid token' });
     }
 };
 exports.JwtAuthGuard = JwtAuthGuard;
-exports.JwtAuthGuard = JwtAuthGuard = __decorate([
-    (0, common_1.Injectable)()
-], JwtAuthGuard);

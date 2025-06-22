@@ -16,9 +16,9 @@ const requirePermissions = (requiredPermissions) => {
         }
         const userPermissions = new Set();
         // Collect all permissions from user's roles
-        user.roles.forEach(role => {
+        user.roles.forEach((role) => {
             if (role.permissions) {
-                role.permissions.forEach(permission => {
+                role.permissions.forEach((permission) => {
                     userPermissions.add(permission.name);
                 });
             }

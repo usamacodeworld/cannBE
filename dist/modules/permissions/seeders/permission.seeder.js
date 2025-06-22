@@ -31,6 +31,12 @@ class PermissionSeeder extends base_seeder_1.BaseSeeder {
             [permission_entity_1.PERMISSION_TYPE.UPDATE_PRODUCT]: "Can update existing products",
             [permission_entity_1.PERMISSION_TYPE.DELETE_PRODUCT]: "Can delete products",
             [permission_entity_1.PERMISSION_TYPE.MANAGE_PRODUCT_CATEGORIES]: "Can manage product categories",
+            // Category permissions
+            [permission_entity_1.PERMISSION_TYPE.CREATE_CATEGORY]: "Can create new categories",
+            [permission_entity_1.PERMISSION_TYPE.READ_CATEGORY]: "Can view categories",
+            [permission_entity_1.PERMISSION_TYPE.UPDATE_CATEGORY]: "Can update existing categories",
+            [permission_entity_1.PERMISSION_TYPE.DELETE_CATEGORY]: "Can delete categories",
+            [permission_entity_1.PERMISSION_TYPE.MANAGE_CATEGORIES]: "Can manage all categories",
             // Order permissions
             [permission_entity_1.PERMISSION_TYPE.CREATE_ORDER]: "Can create new orders",
             [permission_entity_1.PERMISSION_TYPE.READ_ORDER]: "Can view orders",

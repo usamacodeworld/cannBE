@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const database_1 = require("../../../config/database");
-const user_entity_1 = require("../../user/entities/user.entity");
+const user_entity_1 = require("../../user/user.entity");
 const jwt_1 = require("../../../libs/jwt");
 const auth_error_1 = require("../errors/auth.error");
 class AuthService {
@@ -11,8 +11,15 @@ class AuthService {
     }
     async login(loginDto) {
         const { email, password } = loginDto;
-        // Find user by email
-        const user = await this.userRepository.findOne({ where: { email } });
+        // Find user by email with roles and permissions
+        const user = await this.userRepository.findOne({
+            where: { email },
+            relations: {
+                roles: {
+                    permissions: true
+                }
+            }
+        });
         if (!user) {
             throw new auth_error_1.AuthError("Invalid credentials", 401);
         }
@@ -21,22 +28,7 @@ class AuthService {
         if (!isValidPassword) {
             throw new auth_error_1.AuthError("Invalid credentials", 401);
         }
-        // Generate JWT token
-        // const accessToken = getAccessToken({
-        //   id: user.id,
-        //   email: user.email,
-        //   firstName: user.firstName,
-        //   lastName: user.lastName,
-        //   roles: user.roles || [],
-        // });
-        // const refreshToken = getRefreshToken({
-        //   id: user.id,
-        //   email: user.email,
-        //   firstName: user.firstName,
-        //   lastName: user.lastName,
-        //   roles: user.roles || [],
-        // });
-        // Return user data without password
+        // Return user data without password and roles
         const userResponse = {
             id: user.id,
             firstName: user.firstName,
@@ -48,12 +40,20 @@ class AuthService {
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
         };
-        console.log(userResponse);
+        // Create token info with roles (for authorization)
+        const tokenInfo = {
+            ...userResponse,
+            roles: user.roles?.map(role => ({
+                id: role.id,
+                name: role.name,
+                permissions: role.permissions.map(p => p.name)
+            }))
+        };
         return {
             user: {
                 ...userResponse,
-                accessToken: (0, jwt_1.getAccessToken)(userResponse),
-                refreshToken: (0, jwt_1.getRefreshToken)(userResponse),
+                accessToken: (0, jwt_1.getAccessToken)(tokenInfo),
+                refreshToken: (0, jwt_1.getRefreshToken)(tokenInfo),
             },
         };
     }

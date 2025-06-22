@@ -20,10 +20,6 @@ __decorate([
 ], CreateCategoryDto.prototype, "name", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateCategoryDto.prototype, "slug", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateCategoryDto.prototype, "description", void 0);
@@ -41,7 +37,7 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateCategoryDto.prototype, "parent_id", void 0);
+], CreateCategoryDto.prototype, "parentId", void 0);
 __decorate([
     (0, class_validator_1.IsBoolean)(),
     (0, class_validator_1.IsOptional)(),

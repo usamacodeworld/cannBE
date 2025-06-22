@@ -7,12 +7,28 @@ import { CategorySeeder } from '../../modules/category/category.seeder';
 import { AttributeSeeder } from '../../modules/attributes/seeders/attribute.seeder';
 import { AttributeValueSeeder } from '../../modules/attributes/seeders/attribute-value.seeder';
 import { ProductSeeder } from '../../modules/products/seeders/product.seeder';
+import { BaseSeeder } from './base.seeder';
 
 export class SeederRunner {
   private dataSource: DataSource;
+  private seederRegistry: Map<string, any>;
 
   constructor() {
     this.dataSource = AppSeederDataSource;
+    this.initializeSeederRegistry();
+  }
+
+  private initializeSeederRegistry(): void {
+    this.seederRegistry = new Map();
+    
+    // Register all seeders with their names
+    this.seederRegistry.set('permissions', new PermissionSeeder(this.dataSource));
+    this.seederRegistry.set('roles', new RoleSeeder(this.dataSource));
+    this.seederRegistry.set('users', new UserSeeder(this.dataSource));
+    this.seederRegistry.set('categories', new CategorySeeder(this.dataSource));
+    this.seederRegistry.set('attributes', new AttributeSeeder(this.dataSource));
+    this.seederRegistry.set('attribute-values', new AttributeValueSeeder(this.dataSource));
+    this.seederRegistry.set('products', new ProductSeeder(this.dataSource));
   }
 
   async run(): Promise<void> {
@@ -29,6 +45,31 @@ export class SeederRunner {
       console.log('Database connection closed');
     } catch (error) {
       console.error('Error running seeders:', error);
+      throw error;
+    }
+  }
+
+  async runSpecificSeeder(seederName: string): Promise<void> {
+    try {
+      // Initialize database connection
+      await this.dataSource.initialize();
+      console.log('Database connection initialized');
+
+      const seeder = this.seederRegistry.get(seederName.toLowerCase());
+      if (!seeder) {
+        const availableSeeders = Array.from(this.seederRegistry.keys()).join(', ');
+        throw new Error(`Seeder '${seederName}' not found. Available seeders: ${availableSeeders}`);
+      }
+
+      console.log(`Running ${seeder.constructor.name}...`);
+      await seeder.run();
+      console.log(`${seeder.constructor.name} completed`);
+
+      // Close database connection
+      await this.dataSource.destroy();
+      console.log('Database connection closed');
+    } catch (error) {
+      console.error('Error running specific seeder:', error);
       throw error;
     }
   }
@@ -50,5 +91,10 @@ export class SeederRunner {
       await seeder.run();
       console.log(`${seeder.constructor.name} completed`);
     }
+  }
+
+  // Method to list available seeders
+  listAvailableSeeders(): string[] {
+    return Array.from(this.seederRegistry.keys());
   }
 } 

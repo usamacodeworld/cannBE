@@ -3,13 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
-const validateDto = (dtoClass) => {
+const validateDto = (dtoClass, source = 'body') => {
     return async (req, res, next) => {
         // console.log("=== Validation Debug ===");
         // console.log("Request body:", req.body);
         // console.log("DTO Class:", dtoClass.name);
-        // Handle both body and query parameters
-        const data = req.body && Object.keys(req.body).length > 0 ? req.body : req.query;
+        // Get data from the specified source
+        const data = source === 'body' ? req.body : req.query;
         // If no data is provided, create an empty instance with default values
         const dtoObject = (0, class_transformer_1.plainToInstance)(dtoClass, data || {});
         // console.log("Transformed DTO object:", dtoObject);
@@ -43,11 +43,12 @@ const validateDto = (dtoClass) => {
         }
         // console.log("Validation passed, proceeding to next middleware");
         // Store validated data in the appropriate request property
-        if (req.body && Object.keys(req.body).length > 0) {
+        if (source === 'body') {
             req.body = dtoObject;
         }
         else {
             req.validatedQuery = dtoObject;
+            req.query = dtoObject; // Type cast to match Express query type
         }
         next();
     };

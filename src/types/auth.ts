@@ -1,5 +1,5 @@
 import { USER_TYPE } from '@/constants/user'
-import { User } from '@/modules/user/entities/user.entity'
+import { User } from '../modules/user/user.entity'
 import { Role } from "@/modules/role/entities/role.entity"
 
 export type GrantType = 'password' | 'refreshToken'

@@ -12,8 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Role = exports.ADMIN_ROLE = void 0;
 const typeorm_1 = require("typeorm");
 const base_entity_1 = require("../../../common/entities/base.entity");
-const permission_entity_1 = require("../../../modules/permissions/entities/permission.entity");
-const user_entity_1 = require("../../../modules/user/entities/user.entity");
+const permission_entity_1 = require("../../permissions/entities/permission.entity");
+const user_entity_1 = require("../../user/user.entity");
 exports.ADMIN_ROLE = 'ADMIN';
 let Role = class Role extends base_entity_1.BaseEntity {
 };

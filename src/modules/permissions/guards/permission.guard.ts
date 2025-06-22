@@ -1,47 +1,41 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { Request, Response, NextFunction } from 'express';
 import { PERMISSION_TYPE } from '../entities/permission.entity';
-import { User } from '../../user/entities/user.entity';
 
-@Injectable()
-export class PermissionGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+export const PermissionGuard = (requiredPermissions: PERMISSION_TYPE[]) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        if (!requiredPermissions || requiredPermissions.length === 0) {
+            return next();
+        }
 
-  canActivate(context: ExecutionContext): boolean {
-    const requiredPermissions = this.reflector.getAllAndOverride<PERMISSION_TYPE[]>('permissions', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+        const user = req.user as any;
+        if (!user) {
+            return res.status(401).json({ message: 'User not authenticated' });
+        }
 
-    if (!requiredPermissions) {
-      return true;
-    }
+        if (!user.roles) {
+            return res.status(403).json({ message: 'Insufficient permissions' });
+        }
 
-    const { user } = context.switchToHttp().getRequest();
-    if (!user) {
-      return false;
-    }
-
-    return this.hasPermissions(user, requiredPermissions);
-  }
-
-  private hasPermissions(user: User, requiredPermissions: PERMISSION_TYPE[]): boolean {
-    if (!user.roles) {
-      return false;
-    }
-
-    const userPermissions = new Set<PERMISSION_TYPE>();
-    
-    // Collect all permissions from user's roles
-    user.roles.forEach(role => {
-      if (role.permissions) {
-        role.permissions.forEach(permission => {
-          userPermissions.add(permission.name);
+        const userPermissions = new Set<PERMISSION_TYPE>();
+        
+        // Collect all permissions from user's roles
+        user.roles.forEach((role: any) => {
+            if (role.permissions) {
+                role.permissions.forEach((permission: any) => {
+                    userPermissions.add(permission.name);
+                });
+            }
         });
-      }
-    });
 
-    // Check if user has all required permissions
-    return requiredPermissions.every(permission => userPermissions.has(permission));
-  }
-} 
+        // Check if user has all required permissions
+        const hasAllPermissions = requiredPermissions.every(permission => 
+            userPermissions.has(permission)
+        );
+
+        if (!hasAllPermissions) {
+            return res.status(403).json({ message: 'Insufficient permissions' });
+        }
+
+        next();
+    };
+}; 

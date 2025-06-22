@@ -4,10 +4,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.typeormConfig = void 0;
-const user_entity_1 = require("../modules/user/entities/user.entity");
+const user_entity_1 = require("../modules/user/user.entity");
 const role_entity_1 = require("../modules/role/entities/role.entity");
 const permission_entity_1 = require("../modules/permissions/entities/permission.entity");
-const category_entity_1 = require("../modules/category/entities/category.entity");
+const category_entity_1 = require("../modules/category/category.entity");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 exports.typeormConfig = {

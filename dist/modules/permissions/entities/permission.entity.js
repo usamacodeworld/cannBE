@@ -21,6 +21,12 @@ var PERMISSION_TYPE;
     PERMISSION_TYPE["UPDATE_PRODUCT"] = "update:product";
     PERMISSION_TYPE["DELETE_PRODUCT"] = "delete:product";
     PERMISSION_TYPE["MANAGE_PRODUCT_CATEGORIES"] = "manage:product:categories";
+    // Category permissions
+    PERMISSION_TYPE["CREATE_CATEGORY"] = "create:category";
+    PERMISSION_TYPE["READ_CATEGORY"] = "read:category";
+    PERMISSION_TYPE["UPDATE_CATEGORY"] = "update:category";
+    PERMISSION_TYPE["DELETE_CATEGORY"] = "delete:category";
+    PERMISSION_TYPE["MANAGE_CATEGORIES"] = "manage:categories";
     // Order permissions
     PERMISSION_TYPE["CREATE_ORDER"] = "create:order";
     PERMISSION_TYPE["READ_ORDER"] = "read:order";

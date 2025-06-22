@@ -8,6 +8,10 @@ const transformUserInfo = (user) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        roles: user.roles?.map((role) => ({
+            id: role.id,
+            name: role.name
+        }))
     };
 };
 exports.transformUserInfo = transformUserInfo;

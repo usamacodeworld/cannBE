@@ -2,13 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserSeeder = void 0;
 const base_seeder_1 = require("../../../common/seeders/base.seeder");
-const permission_entity_1 = require("../entities/permission.entity");
+const user_entity_1 = require("../../user/user.entity");
 class UserSeeder extends base_seeder_1.BaseSeeder {
     constructor(dataSource) {
         super(dataSource);
     }
     async run() {
-        const userRepository = this.dataSource.getRepository(permission_entity_1.User);
+        const userRepository = this.dataSource.getRepository(user_entity_1.User);
         // Clear existing users
         await userRepository.clear();
         console.log("Cleared existing users");
@@ -46,7 +46,7 @@ class UserSeeder extends base_seeder_1.BaseSeeder {
             type: "seller",
         });
         // Save users using the base seeder methods
-        await this.saveMany([adminUser, regularUser, sellerUser], permission_entity_1.User);
+        await this.saveMany([adminUser, regularUser, sellerUser], user_entity_1.User);
         console.log("Users seeded successfully");
     }
 }

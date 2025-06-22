@@ -11,23 +11,13 @@ const transformUserInfo = (user) => {
     if ("isGuest" in user && user.isGuest) {
         return {
             id: user.id,
-            isGuest: true,
-            type: user.type,
-            firstName: user.firstName,
-            lastName: user.lastName,
             email: user.email,
-            roles: user.roles,
         };
     }
     const regUser = user;
     return {
         id: regUser.id,
-        type: regUser.type,
-        firstName: regUser.firstName,
-        lastName: regUser.lastName,
         email: regUser.email,
-        roles: regUser.roles,
-        isGuest: false,
     };
 };
 const getAccessToken = (user) => {
@@ -36,8 +26,9 @@ const getAccessToken = (user) => {
     }
     const payload = transformUserInfo(user);
     const options = {
-        expiresIn: (process.env.JWT_ACCESS_TOKEN_EXPIRE ||
-            "5m"),
+        expiresIn: (process.env.JWT_ACCESS_TOKEN_EXPIRE || "1h"),
+        algorithm: 'HS256', // Using HS256 for shorter tokens
+        noTimestamp: true, // Remove timestamp to reduce token size
     };
     return jsonwebtoken_1.default.sign(payload, secretKey, options);
 };
@@ -48,8 +39,9 @@ const getRefreshToken = (user) => {
     }
     const payload = transformUserInfo(user);
     const options = {
-        expiresIn: (process.env.JWT_REFRESH_TOKEN_EXPIRE ||
-            "1d"),
+        expiresIn: (process.env.JWT_REFRESH_TOKEN_EXPIRE || "1d"),
+        algorithm: 'HS256', // Using HS256 for shorter tokens
+        noTimestamp: true, // Remove timestamp to reduce token size
     };
     return jsonwebtoken_1.default.sign(payload, secretKey, options);
 };

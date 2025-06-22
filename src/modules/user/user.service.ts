@@ -22,12 +22,7 @@ export const createUser = async (
     throw new Error("User already exists");
   }
 
-  // Hash password and create user
-  const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-  const user = userRepository.create({
-    ...createUserDto,
-    password: hashedPassword,
-  });
+  const user = userRepository.create(createUserDto);
 
   await userRepository.save(user);
 
