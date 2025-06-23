@@ -4,6 +4,8 @@ import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
 import { ProductService } from './product.service';
 import { v4 as uuidv4 } from 'uuid';
+import slug from 'slug';
+import { GetProductsQueryDto } from './dto/get-products-query.dto';
 
 export function productController(
   productRepository: Repository<Product>,
@@ -14,7 +16,22 @@ export function productController(
   return {
     createProduct: async (req: Request, res: Response) => {
       try {
-        const product = await productService.createProduct(req.body);
+        const productData = req.body;
+        const user = req.user;
+
+        if (!user) {
+          res.status(401).json({
+            message: 'Authentication required',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+          return;
+        }
+
+        const slugToUse = productData.slug ? productData.slug : slug(productData.name, { lower: true });
+
+        const product = await productService.createProduct(productData, user, slugToUse);
         res.status(201).json({
           message: 'Product created successfully',
           requestId: uuidv4(),
@@ -32,7 +49,8 @@ export function productController(
     },
     getProducts: async (req: Request, res: Response) => {
       try {
-        const products = await productService.findAll();
+        const query = req.query as unknown as GetProductsQueryDto;
+        const products = await productService.findAll(query);
         res.json({
           message: 'Products retrieved successfully',
           requestId: uuidv4(),

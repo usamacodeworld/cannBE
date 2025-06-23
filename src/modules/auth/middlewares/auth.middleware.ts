@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { User } from "../../user/user.entity";
 import { RES_CODE } from "../../../constants/responseCode";
-import { verifyToken } from "../../../libs/jwt";
+import { verifyToken, getAccessToken, getRefreshToken } from "../../../libs/jwt";
 import { AppDataSource } from "../../../config/database";
+import { UserInfo } from "@/types/auth";
 
 declare global {
   namespace Express {
@@ -12,19 +13,18 @@ declare global {
   }
 }
 
-export const authenticate = async (req: Request, _: Response, next: NextFunction) => {
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+  const header = req.headers.authorization || "";
+  const accessToken = header.split("Bearer ")[1];
+
+  if (!accessToken) {
+    res.status(401).json({ message: RES_CODE.NO_TOKEN_PROVIDED, code: 1 });
+    return;
+  }
+
   try {
-    const header = req.headers.authorization || "";
-    const accessToken = header.split("Bearer ")[1];
-
-    if (!accessToken) {
-      return next(new Error(RES_CODE.NO_TOKEN_PROVIDED));
-    }
-
     // Verify the access token
     const decoded = verifyToken(accessToken);
-
-    // Get the user from the database with roles and permissions
     const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOne({
       where: { id: decoded.id },
@@ -32,25 +32,24 @@ export const authenticate = async (req: Request, _: Response, next: NextFunction
     });
 
     if (!user) {
-      return next(new Error(RES_CODE["401"]));
+      res.status(401).json({ message: RES_CODE["401"], code: 1 });
+      return;
     }
 
-    // Attach the user to the request
     req.user = user;
     return next();
   } catch (error) {
-    console.error("Authentication error:", error);
-    
-    if (error instanceof Error) {
-      if (error.message === "Token expired") {
-        return next(new Error(RES_CODE.TOKEN_EXPIRED));
-      }
-      if (error.message === "Invalid token") {
-        return next(new Error(RES_CODE.INVALID_TOKEN_SIGNATURE));
-      }
+    if (error instanceof Error && error.message === "Token expired") {
+      res.status(401).json({ message: RES_CODE.TOKEN_EXPIRED, code: 1 });
+      return;
     }
     
-    return next(new Error(RES_CODE.INVALID_TOKEN_SIGNATURE));
+    if (error instanceof Error && error.message === "Invalid token") {
+      res.status(401).json({ message: RES_CODE.INVALID_TOKEN_SIGNATURE, code: 1 });
+      return;
+    }
+
+    return next(error);
   }
 };
 

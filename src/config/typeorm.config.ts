@@ -22,4 +22,4 @@ export const typeormConfig: DataSourceOptions = {
   ssl: process.env.DB_SSL === 'true' ? {
     rejectUnauthorized: false
   } : false
-}; 
+};

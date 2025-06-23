@@ -43,11 +43,13 @@
     "mongoose": "^8.15.1",
     "pg": "^8.16.0",
     "reflect-metadata": "^0.2.2",
+    "slug": "^11.0.0",
     "ts-node-dev": "^2.0.0",
     "typeorm": "^0.3.24",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "@types/slug": "^5.0.9",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0"
   }

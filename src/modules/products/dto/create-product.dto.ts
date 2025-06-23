@@ -3,27 +3,20 @@ import { Type } from 'class-transformer';
 import { CreateProductVariantDto } from './create-product-variant.dto';
 
 export class CreateProductDto {
-  @IsOptional()
-  @IsString()
-  added_by?: string;
-
-  @IsOptional()
-  @IsString()
-  user_id?: string;
-
-  @IsOptional()
-  @IsString()
-  category_id?: string;
-
   @IsString()
   name: string;
 
+  @IsOptional()
   @IsString()
-  slug: string;
+  slug?: string;
 
   @IsArray()
   @IsString({ each: true })
   photos: string[];
+
+  @IsOptional()
+  @IsString()
+  category_id?: string;
 
   @IsOptional()
   @IsString()
@@ -83,10 +76,12 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsDate()
+  @Type(() => Date)
   discount_start_date?: Date;
 
   @IsOptional()
   @IsDate()
+  @Type(() => Date)
   discount_end_date?: Date;
 
   @IsOptional()

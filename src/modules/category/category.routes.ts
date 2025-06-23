@@ -31,7 +31,7 @@ router.post(
 );
 
 router.get(
-  "/categories",
+  "/all",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.READ_CATEGORY),
   getCategories
@@ -58,7 +58,7 @@ router.get(
   getSubCategories
 );
 
-router.patch(
+router.put(
   "/update/:id",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.UPDATE_CATEGORY),

@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, Between } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -7,6 +7,11 @@ import { CreateProductVariantDto } from './dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { ProductVariantResponseDto } from './dto/product-variant-response.dto';
+import { User } from '../user/user.entity';
+import { cuid } from '../../libs/cuid';
+import { GetProductsQueryDto } from './dto/get-products-query.dto';
+import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
+import slugify from 'slug';
 
 export class ProductService {
   private productRepository: Repository<Product>;
@@ -38,11 +43,40 @@ export class ProductService {
     };
   }
 
-  async createProduct(data: CreateProductDto): Promise<ProductResponseDto> {
+  private async generateUniqueSlug(slug: string): Promise<string> {
+    let uniqueSlug = slug;
+    let count = 0;
+    while (await this.productRepository.findOne({ where: { slug: uniqueSlug } })) {
+      count++;
+      uniqueSlug = `${slug}-${cuid().slice(-4)}`;
+    }
+    return uniqueSlug;
+  }
+
+  private async generateUniqueSku(sku: string): Promise<string> {
+    let uniqueSku = sku;
+    while (await this.variantRepository.findOne({ where: { sku: uniqueSku } })) {
+      uniqueSku = `${sku}-${cuid().slice(-4)}`;
+    }
+    return uniqueSku;
+  }
+
+  async createProduct(data: CreateProductDto, user: User, slug: string): Promise<ProductResponseDto> {
+    const uniqueSlug = await this.generateUniqueSlug(slug);
     const { variations, ...productData } = data;
-    const product = this.productRepository.create(productData);
+    const product = this.productRepository.create({
+      ...productData,
+      slug: uniqueSlug,
+      added_by: user.roles && user.roles.length > 0 ? user.roles[0].name : 'user',
+      user_id: user.id,
+    });
     if (variations && Array.isArray(variations)) {
-      product.variants = variations.map(v => this.variantRepository.create(v));
+      product.variants = await Promise.all(
+        variations.map(async v => {
+          const uniqueSku = await this.generateUniqueSku(v.sku);
+          return this.variantRepository.create({ ...v, sku: uniqueSku });
+        })
+      );
     }
     const saved = await this.productRepository.save(product);
     const found = await this.productRepository.findOne({ where: { id: saved.id }, relations: ['variants'] });
@@ -50,9 +84,51 @@ export class ProductService {
     return this.toProductResponse(found);
   }
 
-  async findAll(): Promise<ProductResponseDto[]> {
-    const products = await this.productRepository.find({ relations: ['variants'] });
-    return products.map(this.toProductResponse.bind(this));
+  async findAll(query: GetProductsQueryDto): Promise<PaginatedResponseDto<ProductResponseDto>> {
+    const { page = 1, limit = 10, sort = 'updatedAt', order = 'desc', filters = {} } = query;
+    const skip = (page - 1) * limit;
+    const { search, category_id, is_variant, published, featured, min_price, max_price } = filters;
+
+    const baseConditions: FindOptionsWhere<Product> = {};
+
+    if (category_id) baseConditions.category_id = category_id;
+    if (is_variant !== undefined) baseConditions.is_variant = is_variant;
+    if (published !== undefined) baseConditions.published = published;
+    if (featured !== undefined) baseConditions.featured = featured;
+    if (min_price !== undefined && max_price !== undefined) {
+      baseConditions.sale_price = Between(min_price, max_price);
+    }
+
+    let where: FindOptionsWhere<Product>[] | FindOptionsWhere<Product> = baseConditions;
+
+    if (search) {
+      where = [
+        { ...baseConditions, name: Like(`%${search}%`) },
+        { ...baseConditions, slug: Like(`%${search}%`) },
+        { ...baseConditions, short_description: Like(`%${search}%`) },
+        { ...baseConditions, long_description: Like(`%${search}%`) },
+      ];
+    }
+
+    const [products, total] = await this.productRepository.findAndCount({
+      where,
+      skip,
+      take: limit,
+      order: { [sort]: order },
+      relations: ['variants'],
+    });
+
+    const productDtos = products.map(this.toProductResponse.bind(this));
+
+    return {
+      data: productDtos,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string): Promise<ProductResponseDto> {
@@ -64,12 +140,26 @@ export class ProductService {
   async updateProduct(id: string, data: UpdateProductDto): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({ where: { id }, relations: ['variants'] });
     if (!product) throw new Error('Product not found');
+    
+    if (data.name && !data.slug) {
+      data.slug = slugify(data.name, { lower: true });
+    }
+
+    if (data.slug) {
+      data.slug = await this.generateUniqueSlug(data.slug);
+    }
+
     const { variations, ...productData } = data;
     Object.assign(product, productData);
     if (variations) {
       // Remove old variants and add new
       await this.variantRepository.delete({ product: { id } });
-      product.variants = variations.map(v => this.variantRepository.create(v));
+      product.variants = await Promise.all(
+        variations.map(async v => {
+          const uniqueSku = await this.generateUniqueSku(v.sku);
+          return this.variantRepository.create({ ...v, sku: uniqueSku });
+        })
+      );
     }
     const saved = await this.productRepository.save(product);
     const found = await this.productRepository.findOne({ where: { id: saved.id }, relations: ['variants'] });

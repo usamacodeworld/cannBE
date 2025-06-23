@@ -4,6 +4,7 @@ import { Category } from "./category.entity";
 import { CategoryService } from "./category.service";
 import { v4 as uuidv4 } from 'uuid';
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
+import slugify from 'slug';
 
 export function categoryController(categoryRepository: Repository<Category>) {
   const categoryService = new CategoryService(categoryRepository);
@@ -11,7 +12,11 @@ export function categoryController(categoryRepository: Repository<Category>) {
   return {
     createCategory: async (req: Request, res: Response) => {
       try {
-        const category = await categoryService.create(req.body);
+        const categoryData = req.body;
+        if (!categoryData.slug) {
+          categoryData.slug = slugify(categoryData.name, { lower: true });
+        }
+        const category = await categoryService.create(categoryData);
         res.status(201).json({
           message: "Category created successfully",
           requestId: uuidv4(),

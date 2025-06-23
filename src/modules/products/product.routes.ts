@@ -8,6 +8,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductVariantDto } from './dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
+import { authenticate } from '../auth/middlewares/auth.middleware';
 
 const router = Router();
 const productRepository = AppDataSource.getRepository(Product);
@@ -15,8 +16,8 @@ const variantRepository = AppDataSource.getRepository(ProductVariant);
 const ctrl = productController(productRepository, variantRepository);
 
 // Product CRUD
-router.post('/', validateDto(CreateProductDto), ctrl.createProduct);
-router.get('/', ctrl.getProducts);
+router.post('/', authenticate, validateDto(CreateProductDto), ctrl.createProduct);
+router.get('/all', authenticate, ctrl.getProducts);
 router.get('/:id', ctrl.getProduct);
 router.put('/:id', validateDto(UpdateProductDto), ctrl.updateProduct);
 router.delete('/:id', ctrl.deleteProduct);

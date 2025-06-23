@@ -87,10 +87,12 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsDate()
+  @Type(() => Date)
   discount_start_date?: Date;
 
   @IsOptional()
   @IsDate()
+  @Type(() => Date)
   discount_end_date?: Date;
 
   @IsOptional()

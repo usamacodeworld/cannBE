@@ -6,6 +6,7 @@ import { getAccessToken, getRefreshToken } from "../../../libs/jwt";
 import { AuthError } from "../errors/auth.error";
 import { UserInfo } from "@/types/auth";
 import { USER_TYPE } from "@/constants/user";
+import { verifyToken } from "../../../libs/jwt";
 
 export class AuthService {
   private userRepository = AppDataSource.getRepository(User);
@@ -68,5 +69,43 @@ export class AuthService {
         refreshToken: getRefreshToken(tokenInfo as UserInfo),
       },
     };
+  }
+
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    try {
+      // Verify the refresh token
+      const decoded = verifyToken(refreshToken);
+      if (!decoded) {
+        throw new AuthError('Invalid refresh token', 401);
+      }
+
+      // Find user by ID and check if the refresh token matches
+      const user = await this.userRepository.findOne({
+        where: { id: decoded.id },
+        relations: ['roles', 'roles.permissions'],
+      });
+
+      if (!user) {
+        throw new AuthError('Invalid refresh token or token has been revoked', 401);
+      }
+
+      // Create new tokens
+      const tokenInfo = {
+        id: user.id,
+        email: user.email,
+        roles: user.roles?.map(role => ({
+          id: role.id,
+          name: role.name,
+          permissions: role.permissions.map(p => p.name),
+        })),
+      };
+
+      const newAccessToken = getAccessToken(tokenInfo as UserInfo);
+      const newRefreshToken = getRefreshToken(tokenInfo as UserInfo);
+
+      return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+    } catch (error) {
+      throw new AuthError('Session expired. Please log in again.', 401);
+    }
   }
 }

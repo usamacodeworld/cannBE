@@ -26,6 +26,7 @@ export class CategoryService {
       isPopular: category.isPopular || false,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
+      parent: category.parent,
     };
   }
 
@@ -59,7 +60,7 @@ export class CategoryService {
   async create(
     createCategoryDto: CreateCategoryDto
   ): Promise<CategoryResponseDto> {
-    const slug = await this.generateUniqueSlug(createCategoryDto.name);
+    const slug = await this.generateUniqueSlug(createCategoryDto.slug || createCategoryDto.name);
     const category = this.categoryRepository.create({
       ...createCategoryDto,
       slug,
@@ -130,12 +131,14 @@ export class CategoryService {
   async findOne(id: string): Promise<CategoryResponseDto> {
     const category = await this.categoryRepository.findOne({
       where: { id, isDeleted: false },
+      relations: ["parent"],
     });
     if (!category) {
       throw new Error(`Category with ID ${id} not found`);
     }
     return this.transformToResponseDto(category);
   }
+
 
   async update(
     id: string,
@@ -150,10 +153,18 @@ export class CategoryService {
       );
     }
 
-    Object.assign(category, updateCategoryDto);
+    const { parentId, ...dtoWithoutParentId } = updateCategoryDto;
+
+    Object.assign(category, dtoWithoutParentId);
+
+    if (parentId !== undefined && parentId !== category.parentId) {
+      // Update via relation property
+      category.parent = { id: parentId } as Category;
+    }
     const updatedCategory = await this.categoryRepository.save(category);
     return this.transformToResponseDto(updatedCategory);
   }
+
 
   async remove(id: string): Promise<void> {
     const category = await this.categoryRepository.findOne({
