@@ -20,13 +20,12 @@ const upload = multer({
   fileFilter: fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 1 // Only allow 1 file at a time
   }
 });
 
-// Middleware for single image upload with error handling
-export const uploadSingleImage = (req: Request, res: Response, next: NextFunction) => {
-  upload.single('image')(req, res, (err: any) => {
+// Middleware for single image upload with error handling (custom field)
+export const uploadSingleImageField = (fieldName: string) => (req: Request, res: Response, next: NextFunction) => {
+  upload.single(fieldName)(req, res, (err: any) => {
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -54,7 +53,6 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
           });
         }
       }
-      
       if (err.message === 'Only image files are allowed') {
         return res.status(400).json({
           message: err.message,
@@ -68,10 +66,9 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
   });
 };
 
-// Middleware for multiple images upload
-export const uploadMultipleImages = upload.array('images', 10); // Max 10 images
+// Middleware for multiple images upload (custom field)
+export const uploadMultipleImagesField = (fieldName: string, maxCount = 10) => upload.array(fieldName, maxCount);
 
-// Validation middleware to check if file was uploaded
 export const validateFileUpload = (req: Request, res: Response, next: NextFunction) => {
   if (!req.file) {
     return res.status(400).json({
@@ -95,4 +92,6 @@ export const validateFilesUpload = (req: Request, res: Response, next: NextFunct
     });
   }
   next();
-}; 
+};
+
+export { upload }; 

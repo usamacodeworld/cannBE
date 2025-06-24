@@ -22,6 +22,15 @@ export class CreateProductDto {
   @IsString()
   thumbnail_img?: string;
 
+  @IsOptional()
+  @IsString()
+  thumbnailBase64?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  photosBase64?: string[];
+
   @IsArray()
   @IsString({ each: true })
   tags: string[];

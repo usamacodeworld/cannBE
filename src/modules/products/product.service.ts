@@ -12,6 +12,7 @@ import { cuid } from '../../libs/cuid';
 import { GetProductsQueryDto } from './dto/get-products-query.dto';
 import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 import slugify from 'slug';
+import { s3Service } from '../../libs/s3';
 
 export class ProductService {
   private productRepository: Repository<Product>;
@@ -61,9 +62,75 @@ export class ProductService {
     return uniqueSku;
   }
 
-  async createProduct(data: CreateProductDto, user: User, slug: string): Promise<ProductResponseDto> {
+  private async handleImageUpload(
+    file: Express.Multer.File | undefined,
+    base64: string | undefined,
+    folder: string,
+    customFileName: string
+  ): Promise<string | undefined> {
+    if (file) {
+      const result = await s3Service.uploadFile(file, folder, customFileName);
+      return result.url;
+    }
+    if (base64) {
+      const result = await s3Service.uploadBase64Image(base64, folder, customFileName);
+      return result.url;
+    }
+    return undefined;
+  }
+
+  private async handleMultipleImageUploads(
+    files: Express.Multer.File[] | undefined,
+    base64s: string[] | undefined,
+    folder: string,
+    customFileNamePrefix: string
+  ): Promise<string[]> {
+    const urls: string[] = [];
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const url = await this.handleImageUpload(file, undefined, folder, `${customFileNamePrefix}-photo-${i}`);
+        if (url) urls.push(url);
+      }
+    }
+    if (base64s && base64s.length > 0) {
+      for (let i = 0; i < base64s.length; i++) {
+        const base64 = base64s[i];
+        const url = await this.handleImageUpload(undefined, base64, folder, `${customFileNamePrefix}-photo-b64-${i}`);
+        if (url) urls.push(url);
+      }
+    }
+    return urls;
+  }
+
+  async createProduct(
+    data: CreateProductDto,
+    user: any,
+    slug: string,
+    thumbnailFile?: Express.Multer.File,
+    photosFiles?: Express.Multer.File[]
+  ): Promise<ProductResponseDto> {
     const uniqueSlug = await this.generateUniqueSlug(slug);
-    const { variations, ...productData } = data;
+    const { variations, thumbnailBase64, photosBase64, ...productData } = data;
+
+    // Handle thumbnail upload
+    const thumbnailUrl = await this.handleImageUpload(
+      thumbnailFile,
+      thumbnailBase64,
+      'products',
+      `${uniqueSlug}-thumbnail`
+    );
+    if (thumbnailUrl) productData.thumbnail_img = thumbnailUrl;
+
+    // Handle multiple photos upload
+    const photosUrls = await this.handleMultipleImageUploads(
+      Array.isArray(photosFiles) ? photosFiles : undefined,
+      photosBase64,
+      'products',
+      uniqueSlug
+    );
+    if (photosUrls.length > 0) productData.photos = photosUrls;
+
     const product = this.productRepository.create({
       ...productData,
       slug: uniqueSlug,
@@ -137,22 +204,42 @@ export class ProductService {
     return this.toProductResponse(product);
   }
 
-  async updateProduct(id: string, data: UpdateProductDto): Promise<ProductResponseDto> {
+  async updateProduct(
+    id: string,
+    data: UpdateProductDto,
+    thumbnailFile?: Express.Multer.File,
+    photosFiles?: Express.Multer.File[]
+  ): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({ where: { id }, relations: ['variants'] });
     if (!product) throw new Error('Product not found');
-    
     if (data.name && !data.slug) {
       data.slug = slugify(data.name, { lower: true });
     }
-
     if (data.slug) {
       data.slug = await this.generateUniqueSlug(data.slug);
     }
+    const { variations, thumbnailBase64, photosBase64, ...productData } = data;
 
-    const { variations, ...productData } = data;
+    // Handle thumbnail upload
+    const thumbnailUrl = await this.handleImageUpload(
+      thumbnailFile,
+      thumbnailBase64,
+      'products',
+      `${data.slug || product.slug}-thumbnail`
+    );
+    if (thumbnailUrl) productData.thumbnail_img = thumbnailUrl;
+
+    // Handle multiple photos upload
+    const photosUrls = await this.handleMultipleImageUploads(
+      Array.isArray(photosFiles) ? photosFiles : undefined,
+      photosBase64,
+      'products',
+      data.slug || product.slug
+    );
+    if (photosUrls.length > 0) productData.photos = photosUrls;
+
     Object.assign(product, productData);
     if (variations) {
-      // Remove old variants and add new
       await this.variantRepository.delete({ product: { id } });
       product.variants = await Promise.all(
         variations.map(async v => {

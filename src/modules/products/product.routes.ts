@@ -9,17 +9,34 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductVariantDto } from './dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
 import { authenticate } from '../auth/middlewares/auth.middleware';
+import { upload } from '../../common/middlewares/upload.middleware';
 
 const router = Router();
 const productRepository = AppDataSource.getRepository(Product);
 const variantRepository = AppDataSource.getRepository(ProductVariant);
 const ctrl = productController(productRepository, variantRepository);
 
+export const uploadProductImages = upload.fields([
+  { name: 'thumbnail_img', maxCount: 1 },
+  { name: 'photos', maxCount: 10 }
+]);
+
 // Product CRUD
-router.post('/', authenticate, validateDto(CreateProductDto), ctrl.createProduct);
+router.post(
+  '/',
+  authenticate,
+  uploadProductImages,
+  validateDto(CreateProductDto),
+  ctrl.createProduct
+);
 router.get('/all', authenticate, ctrl.getProducts);
 router.get('/:id', ctrl.getProduct);
-router.put('/:id', validateDto(UpdateProductDto), ctrl.updateProduct);
+router.put(
+  '/:id',
+  uploadProductImages,
+  validateDto(UpdateProductDto),
+  ctrl.updateProduct
+);
 router.delete('/:id', ctrl.deleteProduct);
 
 // Product Variant CRUD (nested under product)

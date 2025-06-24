@@ -33,6 +33,15 @@ export class UpdateProductDto {
   thumbnail_img?: string;
 
   @IsOptional()
+  @IsString()
+  thumbnailBase64?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  photosBase64?: string[];
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tags?: string[];

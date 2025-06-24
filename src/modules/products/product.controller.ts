@@ -31,7 +31,13 @@ export function productController(
 
         const slugToUse = productData.slug ? productData.slug : slug(productData.name, { lower: true });
 
-        const product = await productService.createProduct(productData, user, slugToUse);
+        const product = await productService.createProduct(
+          productData,
+          user,
+          slugToUse,
+          req.file,
+          req.files && Array.isArray(req.files) ? req.files : req.files?.['photos'] || []
+        );
         res.status(201).json({
           message: 'Product created successfully',
           requestId: uuidv4(),
@@ -86,7 +92,12 @@ export function productController(
     },
     updateProduct: async (req: Request, res: Response) => {
       try {
-        const product = await productService.updateProduct(req.params.id, req.body);
+        const product = await productService.updateProduct(
+          req.params.id,
+          req.body,
+          req.file,
+          req.files && Array.isArray(req.files) ? req.files : req.files?.['photos'] || []
+        );
         res.json({
           message: 'Product updated successfully',
           requestId: uuidv4(),

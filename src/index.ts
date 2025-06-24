@@ -11,7 +11,7 @@ import qs from "qs";
 
 dotenv.config();
 
-// Set AWS credentials if not already set
+
 if (!process.env.AWS_ACCESS_KEY_ID) {
   process.env.AWS_ACCESS_KEY_ID = 'AKIATLRIUUO3CXVL7ZWR';
   process.env.AWS_SECRET_ACCESS_KEY = '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';

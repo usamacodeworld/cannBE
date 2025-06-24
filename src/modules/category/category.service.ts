@@ -236,6 +236,19 @@ export class CategoryService {
 
     // Handle image upload if provided
     if (uploadedFile || updateCategoryDto.imageBase64 || updateCategoryDto.image) {
+      // Delete old image from S3 if it exists and is different from the new one
+      if (category.image && 
+          category.image !== updateCategoryDto.image && 
+          (category.image.startsWith('http://') || category.image.startsWith('https://'))) {
+        try {
+          await this.deleteImageFromS3(category.image);
+          console.log(`Old S3 image deleted for category: ${category.name}`);
+        } catch (error) {
+          console.error(`Failed to delete old S3 image for category ${category.name}:`, error);
+          // Continue with update even if old image deletion fails
+        }
+      }
+
       const imageUrl = await this.handleImageUpload(
         updateCategoryDto.image,
         updateCategoryDto.imageBase64,
@@ -265,7 +278,35 @@ export class CategoryService {
     if (!category) {
       throw new Error(`Category with ID ${id} not found`);
     }
+
+    // Delete image from S3 if it exists
+    if (category.image) {
+      try {
+        await this.deleteImageFromS3(category.image);
+        console.log(`S3 image deleted for category: ${category.name}`);
+      } catch (error) {
+        console.error(`Failed to delete S3 image for category ${category.name}:`, error);
+        // Continue with category deletion even if S3 deletion fails
+      }
+    }
+
     await this.categoryRepository.remove(category);
+  }
+
+  private async deleteImageFromS3(imageUrl: string): Promise<void> {
+    try {
+      // Extract the key from the S3 URL
+      // URL format: https://bucket-name.s3.region.amazonaws.com/key
+      const urlParts = imageUrl.split('.com/');
+      if (urlParts.length === 2) {
+        const key = urlParts[1];
+        await s3Service.deleteFile(key);
+      } else {
+        throw new Error('Invalid S3 URL format');
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete image from S3: ${error}`);
+    }
   }
 
   async findSubCategories(
