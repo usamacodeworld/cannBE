@@ -2,17 +2,19 @@ import { Request, Response } from "express";
 import { Repository } from "typeorm";
 import { Category } from "./category.entity";
 import { CategoryService } from "./category.service";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
-import slugify from 'slug';
+import slugify from "slug";
 
 export function categoryController(categoryRepository: Repository<Category>) {
   const categoryService = new CategoryService(categoryRepository);
 
   return {
     createCategory: async (req: Request, res: Response) => {
+       console.log("Data ===> ", req.body);
       try {
         const categoryData = req.body;
+       
         if (!categoryData.slug) {
           categoryData.slug = slugify(categoryData.name, { lower: true });
         }
@@ -21,14 +23,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
           message: "Category created successfully",
           requestId: uuidv4(),
           data: category,
-          code: 0
+          code: 0,
         });
       } catch (error: unknown) {
         res.status(400).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -41,14 +43,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
           message: "Categories retrieved successfully",
           requestId: uuidv4(),
           data: categories,
-          code: 0
+          code: 0,
         });
       } catch (error: unknown) {
         res.status(500).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -60,33 +62,37 @@ export function categoryController(categoryRepository: Repository<Category>) {
           message: "Category retrieved successfully",
           requestId: uuidv4(),
           data: category,
-          code: 0
+          code: 0,
         });
       } catch (error: unknown) {
         res.status(404).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
 
     updateCategory: async (req: Request, res: Response) => {
       try {
-        const category = await categoryService.update(req.params.id, req.body, req.file);
+        const category = await categoryService.update(
+          req.params.id,
+          req.body,
+          req.file
+        );
         res.json({
           message: "Category updated successfully",
           requestId: uuidv4(),
           data: category,
-          code: 0
+          code: 0,
         });
       } catch (error: unknown) {
         res.status(400).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -98,14 +104,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
           message: "Category deleted successfully",
           requestId: uuidv4(),
           data: null,
-          code: 0
+          code: 0,
         });
       } catch (error: unknown) {
         res.status(404).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -118,14 +124,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
           message: "Parent categories retrieved successfully",
           requestId: uuidv4(),
           data: categories,
-          code: 0
+          code: 0,
         });
       } catch (error: unknown) {
         res.status(500).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -133,21 +139,24 @@ export function categoryController(categoryRepository: Repository<Category>) {
     getSubCategories: async (req: Request, res: Response) => {
       try {
         const query = req.query as unknown as GetCategoriesQueryDto;
-        const categories = await categoryService.findSubCategories(req.params.id, query);
+        const categories = await categoryService.findSubCategories(
+          req.params.id,
+          query
+        );
         res.json({
           message: "Sub categories retrieved successfully",
           requestId: uuidv4(),
           data: categories,
-          code: 0
+          code: 0,
         });
       } catch (error: unknown) {
         res.status(404).json({
           message: (error as Error).message,
           requestId: uuidv4(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
-    }
+    },
   };
-} 
+}

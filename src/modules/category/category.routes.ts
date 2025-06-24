@@ -9,6 +9,7 @@ import { RequirePermissions } from "../permissions/decorators/require-permission
 import { PERMISSION_TYPE } from "../permissions/entities/permission.entity";
 import { AppDataSource } from "../../config/database";
 import { uploadSingleImage } from "../../common/middlewares/upload.middleware";
+import { globalFormDataBoolean } from "../../common/middlewares/global-formdata-boolean";
 
 const router = Router();
 const categoryRepository = AppDataSource.getRepository(Category);
@@ -19,7 +20,7 @@ const {
   updateCategory,
   deleteCategory,
   getParentCategories,
-  getSubCategories
+  getSubCategories,
 } = categoryController(categoryRepository);
 
 // Admin protected routes
@@ -28,6 +29,7 @@ router.post(
   authenticate,
   RequirePermissions(PERMISSION_TYPE.CREATE_CATEGORY),
   uploadSingleImage,
+  globalFormDataBoolean,
   validateDto(CreateCategoryDto),
   createCategory
 );
@@ -65,6 +67,7 @@ router.put(
   authenticate,
   RequirePermissions(PERMISSION_TYPE.UPDATE_CATEGORY),
   uploadSingleImage,
+  globalFormDataBoolean,
   validateDto(UpdateCategoryDto),
   updateCategory
 );
@@ -76,4 +79,4 @@ router.delete(
   deleteCategory
 );
 
-export default router; 
+export default router;
