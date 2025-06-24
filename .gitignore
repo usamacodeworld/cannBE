@@ -1,19 +1,6 @@
+
 # dependencies
 /node_modules
 /.pnp
 .pnp.js
 .yarn/install-state.gz
-
-# Environment variables and secrets
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# AWS credentials and configuration
-.aws/
-aws-credentials.json
-aws-config.json
-*.pem
-*.key
