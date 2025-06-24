@@ -16,7 +16,7 @@ export function categoryController(categoryRepository: Repository<Category>) {
         if (!categoryData.slug) {
           categoryData.slug = slugify(categoryData.name, { lower: true });
         }
-        const category = await categoryService.create(categoryData);
+        const category = await categoryService.create(categoryData, req.file);
         res.status(201).json({
           message: "Category created successfully",
           requestId: uuidv4(),
@@ -74,7 +74,7 @@ export function categoryController(categoryRepository: Repository<Category>) {
 
     updateCategory: async (req: Request, res: Response) => {
       try {
-        const category = await categoryService.update(req.params.id, req.body);
+        const category = await categoryService.update(req.params.id, req.body, req.file);
         res.json({
           message: "Category updated successfully",
           requestId: uuidv4(),

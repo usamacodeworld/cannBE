@@ -5,6 +5,7 @@ import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { CategoryResponseDto } from "./dto/category-response.dto";
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
+import { s3Service } from "../../libs/s3";
 
 export class CategoryService {
   private categoryRepository: Repository<Category>;
@@ -57,15 +58,94 @@ export class CategoryService {
     return uniqueSlug;
   }
 
+  private async handleImageUpload(
+    imageData: string | undefined,
+    imageBase64: string | undefined,
+    uploadedFile: Express.Multer.File | undefined,
+    categoryName: string
+  ): Promise<string | undefined> {
+    try {
+      // Priority: uploaded file > base64 > image URL
+      if (uploadedFile) {
+        const result = await s3Service.uploadFile(
+          uploadedFile,
+          'categories',
+          `${this.slugify(categoryName)}-${Date.now()}`
+        );
+        return result.url;
+      }
+
+      if (imageBase64) {
+        // Validate base64 data
+        if (!this.isValidBase64Image(imageBase64)) {
+          throw new Error('Invalid base64 image data. Must be a valid data URL or base64 string.');
+        }
+        
+        const result = await s3Service.uploadBase64Image(
+          imageBase64,
+          'categories',
+          `${this.slugify(categoryName)}-${Date.now()}`
+        );
+        return result.url;
+      }
+
+      // If image is a URL, return as is
+      if (imageData && (imageData.startsWith('http://') || imageData.startsWith('https://'))) {
+        return imageData;
+      }
+
+      return imageData;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw new Error(`Failed to upload image: ${error}`);
+    }
+  }
+
+  private isValidBase64Image(base64Data: string): boolean {
+    // Check if it's a data URL
+    if (base64Data.startsWith('data:image/')) {
+      return true;
+    }
+    
+    // Check if it's a valid base64 string
+    try {
+      // Remove any whitespace
+      const cleanData = base64Data.replace(/\s/g, '');
+      
+      // Check if it's valid base64
+      if (cleanData.length % 4 !== 0) {
+        return false;
+      }
+      
+      // Try to decode it
+      Buffer.from(cleanData, 'base64');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async create(
-    createCategoryDto: CreateCategoryDto
+    createCategoryDto: CreateCategoryDto,
+    uploadedFile?: Express.Multer.File
   ): Promise<CategoryResponseDto> {
     const slug = await this.generateUniqueSlug(createCategoryDto.slug || createCategoryDto.name);
+    
+    // Handle image upload
+    const imageUrl = await this.handleImageUpload(
+      createCategoryDto.image,
+      createCategoryDto.imageBase64,
+      uploadedFile,
+      createCategoryDto.name
+    );
+
     const category = this.categoryRepository.create({
       ...createCategoryDto,
       slug,
+      image: imageUrl,
       isParent: createCategoryDto.parentId ? true : createCategoryDto.isParent,
     });
+    
     const savedCategory = await this.categoryRepository.save(category);
     return this.transformToResponseDto(savedCategory);
   }
@@ -142,7 +222,8 @@ export class CategoryService {
 
   async update(
     id: string,
-    updateCategoryDto: UpdateCategoryDto
+    updateCategoryDto: UpdateCategoryDto,
+    uploadedFile?: Express.Multer.File
   ): Promise<CategoryResponseDto> {
     const category = await this.findOne(id);
 
@@ -153,7 +234,18 @@ export class CategoryService {
       );
     }
 
-    const { parentId, ...dtoWithoutParentId } = updateCategoryDto;
+    // Handle image upload if provided
+    if (uploadedFile || updateCategoryDto.imageBase64 || updateCategoryDto.image) {
+      const imageUrl = await this.handleImageUpload(
+        updateCategoryDto.image,
+        updateCategoryDto.imageBase64,
+        uploadedFile,
+        updateCategoryDto.name || category.name
+      );
+      updateCategoryDto.image = imageUrl;
+    }
+
+    const { parentId, imageBase64, ...dtoWithoutParentId } = updateCategoryDto;
 
     Object.assign(category, dtoWithoutParentId);
 

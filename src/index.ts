@@ -11,6 +11,15 @@ import qs from "qs";
 
 dotenv.config();
 
+// Set AWS credentials if not already set
+if (!process.env.AWS_ACCESS_KEY_ID) {
+  process.env.AWS_ACCESS_KEY_ID = 'AKIATLRIUUO3CXVL7ZWR';
+  process.env.AWS_SECRET_ACCESS_KEY = '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';
+  process.env.AWS_REGION = 'us-east-1';
+  process.env.AWS_BUCKET_NAME = 'cannbe-files-v1';
+  console.log('AWS credentials set from code');
+}
+
 const app = express();
 app.set("query parser", (str: string) => qs.parse(str));
 // Middleware

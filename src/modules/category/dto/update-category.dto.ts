@@ -1,5 +1,5 @@
 import { CreateCategoryDto } from './create-category.dto';
-import { IsString, IsOptional, IsBoolean, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsUUID, ValidateIf } from 'class-validator';
 
 export class UpdateCategoryDto {
     @IsString()
@@ -8,11 +8,20 @@ export class UpdateCategoryDto {
 
     @IsString()
     @IsOptional()
+    slug?: string;
+
+    @IsString()
+    @IsOptional()
     description?: string;
 
     @IsString()
     @IsOptional()
-    image?: string;
+    image?: string; // URL or base64 data
+
+    @IsString()
+    @IsOptional()
+    @ValidateIf((o) => o.imageBase64 !== undefined)
+    imageBase64?: string; // Alternative for base64 image upload
 
     @IsBoolean()
     @IsOptional()
@@ -33,8 +42,4 @@ export class UpdateCategoryDto {
     @IsBoolean()
     @IsOptional()
     isPopular?: boolean;
-
-    @IsString()
-    @IsOptional()
-    slug?: string;
 } 

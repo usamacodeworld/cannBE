@@ -8,6 +8,7 @@ import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { RequirePermissions } from "../permissions/decorators/require-permissions.decorator";
 import { PERMISSION_TYPE } from "../permissions/entities/permission.entity";
 import { AppDataSource } from "../../config/database";
+import { uploadSingleImage } from "../../common/middlewares/upload.middleware";
 
 const router = Router();
 const categoryRepository = AppDataSource.getRepository(Category);
@@ -26,6 +27,7 @@ router.post(
   "/store",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.CREATE_CATEGORY),
+  uploadSingleImage,
   validateDto(CreateCategoryDto),
   createCategory
 );
@@ -62,6 +64,7 @@ router.put(
   "/update/:id",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.UPDATE_CATEGORY),
+  uploadSingleImage,
   validateDto(UpdateCategoryDto),
   updateCategory
 );
