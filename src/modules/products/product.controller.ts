@@ -6,6 +6,16 @@ import { ProductService } from './product.service';
 import { v4 as uuidv4 } from 'uuid';
 import slug from 'slug';
 import { GetProductsQueryDto } from './dto/get-products-query.dto';
+import { Router } from 'express';
+import { AppDataSource } from '../../config/database';
+import { validateDto } from '../../common/middlewares/validation.middleware';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateProductVariantDto } from './dto/create-product-variant.dto';
+import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
+import { authenticate } from '../auth/middlewares/auth.middleware';
+import { upload } from '../../common/middlewares/upload.middleware';
+import { globalFormDataBoolean } from '../../common/middlewares/global-formdata-boolean';
 
 export function productController(
   productRepository: Repository<Product>,
@@ -16,7 +26,31 @@ export function productController(
   return {
     createProduct: async (req: Request, res: Response) => {
       try {
-        const productData = req.body;
+        // Handle both JSON and form-data
+        let productData: any;
+        
+        // Check if data is sent as JSON in body or as form field
+        if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+          // If body has data field, use that, otherwise use the whole body
+          if (req.body.data) {
+            try {
+              productData = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
+            } catch {
+              productData = req.body;
+            }
+          } else {
+            productData = req.body;
+          }
+        } else {
+          res.status(400).json({
+            message: 'Product data is required',
+            requestId: uuidv4(),
+            data: null,
+            code: 1
+          });
+          return;
+        }
+
         const user = req.user;
 
         if (!user) {
@@ -31,12 +65,19 @@ export function productController(
 
         const slugToUse = productData.slug ? productData.slug : slug(productData.name, { lower: true });
 
+        // Extract files from the flexible multer configuration
+        const files = req.files as Express.Multer.File[];
+        const thumbnailFile = files?.find(f => f.fieldname === 'thumbnailImg' || f.fieldname === 'thumbnail_img' || f.fieldname === 'thumbnail');
+        const photosFiles = files?.filter(f => f.fieldname === 'photos' || f.fieldname.startsWith('photos'));
+        const variantImageFiles = files?.filter(f => f.fieldname === 'variant_images' || f.fieldname.startsWith('variant_images'));
+
         const product = await productService.createProduct(
           productData,
           user,
           slugToUse,
-          req.file,
-          req.files && Array.isArray(req.files) ? req.files : req.files?.['photos'] || []
+          thumbnailFile,
+          photosFiles,
+          variantImageFiles
         );
         res.status(201).json({
           message: 'Product created successfully',
@@ -92,11 +133,37 @@ export function productController(
     },
     updateProduct: async (req: Request, res: Response) => {
       try {
+        // Handle both JSON and form-data
+        let updateData: any;
+        
+        // Check if data is sent as JSON in body or as form field
+        if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+          // If body has data field, use that, otherwise use the whole body
+          if (req.body.data) {
+            try {
+              updateData = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
+            } catch {
+              updateData = req.body;
+            }
+          } else {
+            updateData = req.body;
+          }
+        } else {
+          updateData = {};
+        }
+
+        // Extract files from the flexible multer configuration
+        const files = req.files as Express.Multer.File[];
+        const thumbnailFile = files?.find(f => f.fieldname === 'thumbnailImg' || f.fieldname === 'thumbnail_img' || f.fieldname === 'thumbnail');
+        const photosFiles = files?.filter(f => f.fieldname === 'photos' || f.fieldname.startsWith('photos'));
+        const variantImageFiles = files?.filter(f => f.fieldname === 'variant_images' || f.fieldname.startsWith('variant_images'));
+
         const product = await productService.updateProduct(
           req.params.id,
-          req.body,
-          req.file,
-          req.files && Array.isArray(req.files) ? req.files : req.files?.['photos'] || []
+          updateData,
+          thumbnailFile,
+          photosFiles,
+          variantImageFiles
         );
         res.json({
           message: 'Product updated successfully',
@@ -223,4 +290,9 @@ export function productController(
       }
     },
   };
-} 
+}
+
+const router = Router();
+const productRepository = AppDataSource.getRepository(Product);
+const variantRepository = AppDataSource.getRepository(ProductVariant);
+const ctrl = productController(productRepository, variantRepository); 

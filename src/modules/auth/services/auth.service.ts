@@ -17,7 +17,7 @@ export class AuthService {
       refreshToken: string;
     };
   }> {
-    const { email, password } = loginDto;
+    const { email, password, userType } = loginDto;
 
     // Find user by email with roles and permissions
     const user = await this.userRepository.findOne({
@@ -37,6 +37,11 @@ export class AuthService {
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
       throw new AuthError("Invalid credentials", 401);
+    }
+
+    // Validate userType (now required)
+    if (user.type !== userType) {
+      throw new AuthError(`Access denied. This account is for ${user.type} users only.`, 403);
     }
 
     // Return user data without password and roles

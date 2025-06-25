@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsArray, IsBoolean, IsNumber, IsDate, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { CreateProductVariantDto } from './create-product-variant.dto';
 
 export class CreateProductDto {
@@ -10,17 +10,39 @@ export class CreateProductDto {
   @IsString()
   slug?: string;
 
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  photos: string[];
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [value];
+      }
+    }
+    return value;
+  })
+  categoryIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [value];
+      }
+    }
+    return value;
+  })
+  photos?: string[];
 
   @IsOptional()
   @IsString()
-  category_id?: string;
-
-  @IsOptional()
-  @IsString()
-  thumbnail_img?: string;
+  thumbnailImg?: string;
 
   @IsOptional()
   @IsString()
@@ -29,117 +51,187 @@ export class CreateProductDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [value];
+      }
+    }
+    return value;
+  })
   photosBase64?: string[];
 
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  tags: string[];
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [value];
+      }
+    }
+    return value;
+  })
+  tags?: string[];
 
   @IsOptional()
   @IsString()
-  short_description?: string;
+  shortDescription?: string;
 
   @IsOptional()
   @IsString()
-  long_description?: string;
+  longDescription?: string;
 
   @IsOptional()
   @IsNumber()
-  regular_price?: number;
+  @Type(() => Number)
+  regularPrice?: number;
 
   @IsOptional()
   @IsNumber()
-  sale_price?: number;
+  @Type(() => Number)
+  salePrice?: number;
 
   @IsOptional()
   @IsBoolean()
-  is_variant?: boolean;
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return value;
+  })
+  isVariant?: boolean;
 
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return value;
+  })
   published?: boolean;
 
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return value;
+  })
   approved?: boolean;
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   stock?: number;
 
   @IsOptional()
   @IsBoolean()
-  cash_on_delivery?: boolean;
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return value;
+  })
+  cashOnDelivery?: boolean;
 
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return value;
+  })
   featured?: boolean;
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   discount?: number;
 
   @IsOptional()
   @IsString()
-  discount_type?: string;
+  discountType?: string;
 
   @IsOptional()
   @IsDate()
   @Type(() => Date)
-  discount_start_date?: Date;
+  discountStartDate?: Date;
 
   @IsOptional()
   @IsDate()
   @Type(() => Date)
-  discount_end_date?: Date;
+  discountEndDate?: Date;
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   tax?: number;
 
   @IsOptional()
   @IsString()
-  tax_type?: string;
+  taxType?: string;
 
   @IsOptional()
   @IsString()
-  shipping_type?: string;
+  shippingType?: string;
 
   @IsOptional()
   @IsNumber()
-  shipping_cose?: number;
+  @Type(() => Number)
+  shippingCost?: number;
 
   @IsOptional()
   @IsNumber()
-  est_shipping_days?: number;
+  @Type(() => Number)
+  estShippingDays?: number;
 
   @IsOptional()
   @IsNumber()
-  num_of_sales?: number;
+  @Type(() => Number)
+  numOfSales?: number;
 
   @IsOptional()
   @IsString()
-  meta_title?: string;
+  metaTitle?: string;
 
   @IsOptional()
   @IsString()
-  meta_description?: string;
+  metaDescription?: string;
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   rating?: number;
 
   @IsOptional()
   @IsString()
-  external_link?: string;
+  externalLink?: string;
 
   @IsOptional()
   @IsString()
-  external_link_btn?: string;
+  externalLinkBtn?: string;
 
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateProductVariantDto)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
+    }
+    return value;
+  })
   variations?: CreateProductVariantDto[];
 } 

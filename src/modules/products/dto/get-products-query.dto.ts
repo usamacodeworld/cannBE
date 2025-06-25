@@ -4,8 +4,9 @@ import {
   IsBoolean,
   ValidateNested,
   IsNumber,
+  IsArray,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 class ProductFilters {
@@ -15,12 +16,27 @@ class ProductFilters {
 
   @IsOptional()
   @IsString()
-  category_id?: string;
+  categoryId?: string; // Keep for backward compatibility
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [value];
+      }
+    }
+    return value;
+  })
+  categoryIds?: string[]; // New field for multiple categories
 
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
-  is_variant?: boolean;
+  isVariant?: boolean;
 
   @IsOptional()
   @IsBoolean()
@@ -35,12 +51,12 @@ class ProductFilters {
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  min_price?: number;
+  minPrice?: number;
 
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  max_price?: number;
+  maxPrice?: number;
 }
 
 export class GetProductsQueryDto extends PaginationQueryDto {

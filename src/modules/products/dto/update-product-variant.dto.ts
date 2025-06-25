@@ -20,4 +20,8 @@ export class UpdateProductVariantDto {
   @IsOptional()
   @IsString()
   image?: string;
+
+  @IsOptional()
+  @IsString()
+  imageBase64?: string;
 } 

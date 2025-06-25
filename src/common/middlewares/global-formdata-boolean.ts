@@ -6,7 +6,7 @@ export const globalFormDataBoolean = (
   res: Response,
   next: NextFunction
 ) => {
-  const booleanFields = ["isActive", "isFeatured", "isPopular", "isParent"];
+  const booleanFields = ["isActive", "isFeatured", "isPopular", "isParent", "approved", "published", "featured", "cashOnDelivery", "isVariant"];
 
   // Handle both JSON and FormData bodies
   const body = req.body as Record<string, any>;

@@ -1,17 +1,15 @@
-import { Entity, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, ManyToMany, JoinTable } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { ProductVariant } from './product-variant.entity';
+import { Category } from '../../category/category.entity';
 
 @Entity('products')
 export class Product extends BaseEntity {
   @Column({ nullable: true })
-  added_by: string;
+  addedBy: string;
 
   @Column({ nullable: true })
-  user_id: string;
-
-  @Column({ nullable: true })
-  category_id: string;
+  userId: string;
 
   @Column()
   name: string;
@@ -23,25 +21,25 @@ export class Product extends BaseEntity {
   photos: string[];
 
   @Column({ nullable: true })
-  thumbnail_img: string;
+  thumbnailImg: string;
 
   @Column('simple-array', { nullable: true })
   tags: string[];
 
   @Column({ nullable: true })
-  short_description: string;
+  shortDescription: string;
 
   @Column({ nullable: true })
-  long_description: string;
+  longDescription: string;
 
   @Column('decimal', { nullable: true })
-  regular_price: number;
+  regularPrice: number;
 
   @Column('decimal', { nullable: true })
-  sale_price: number;
+  salePrice: number;
 
   @Column({ default: false })
-  is_variant: boolean;
+  isVariant: boolean;
 
   @Column({ default: false })
   published: boolean;
@@ -53,7 +51,7 @@ export class Product extends BaseEntity {
   stock: number;
 
   @Column({ default: false })
-  cash_on_delivery: boolean;
+  cashOnDelivery: boolean;
 
   @Column({ default: false })
   featured: boolean;
@@ -62,47 +60,51 @@ export class Product extends BaseEntity {
   discount: number;
 
   @Column({ nullable: true })
-  discount_type: string;
+  discountType: string;
 
   @Column({ nullable: true })
-  discount_start_date: Date;
+  discountStartDate: Date;
 
   @Column({ nullable: true })
-  discount_end_date: Date;
+  discountEndDate: Date;
 
   @Column('decimal', { nullable: true })
   tax: number;
 
   @Column({ nullable: true })
-  tax_type: string;
+  taxType: string;
 
   @Column({ nullable: true })
-  shipping_type: string;
+  shippingType: string;
 
   @Column('decimal', { nullable: true })
-  shipping_cose: number;
+  shippingCost: number;
 
   @Column('int', { nullable: true })
-  est_shipping_days: number;
+  estShippingDays: number;
 
   @Column('int', { nullable: true })
-  num_of_sales: number;
+  numOfSales: number;
 
   @Column({ nullable: true })
-  meta_title: string;
+  metaTitle: string;
 
   @Column({ nullable: true })
-  meta_description: string;
+  metaDescription: string;
 
   @Column('decimal', { nullable: true })
   rating: number;
 
   @Column({ nullable: true })
-  external_link: string;
+  externalLink: string;
 
   @Column({ nullable: true })
-  external_link_btn: string;
+  externalLinkBtn: string;
 
   @OneToMany(() => ProductVariant, variant => variant.product, { cascade: true })
   variants: ProductVariant[];
+
+  @ManyToMany(() => Category)
+  @JoinTable()
+  categories: Category[];
 } 

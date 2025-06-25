@@ -10,22 +10,22 @@ import { CreateProductVariantDto } from './dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
 import { authenticate } from '../auth/middlewares/auth.middleware';
 import { upload } from '../../common/middlewares/upload.middleware';
+import { globalFormDataBoolean } from '../../common/middlewares/global-formdata-boolean';
 
 const router = Router();
 const productRepository = AppDataSource.getRepository(Product);
 const variantRepository = AppDataSource.getRepository(ProductVariant);
 const ctrl = productController(productRepository, variantRepository);
 
-export const uploadProductImages = upload.fields([
-  { name: 'thumbnail_img', maxCount: 1 },
-  { name: 'photos', maxCount: 10 }
-]);
+// More flexible multer configuration that accepts any field
+export const uploadProductImages = upload.any();
 
 // Product CRUD
 router.post(
-  '/',
+  '/store',
   authenticate,
   uploadProductImages,
+  globalFormDataBoolean,
   validateDto(CreateProductDto),
   ctrl.createProduct
 );
@@ -34,6 +34,7 @@ router.get('/:id', ctrl.getProduct);
 router.put(
   '/:id',
   uploadProductImages,
+  globalFormDataBoolean,
   validateDto(UpdateProductDto),
   ctrl.updateProduct
 );

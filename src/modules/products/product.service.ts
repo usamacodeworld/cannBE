@@ -1,11 +1,12 @@
 import { Repository, Like, FindOptionsWhere, Between } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
+import { Category } from '../category/category.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductVariantDto } from './dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
-import { ProductResponseDto } from './dto/product-response.dto';
+import { ProductResponseDto, CategoryInfoDto } from './dto/product-response.dto';
 import { ProductVariantResponseDto } from './dto/product-variant-response.dto';
 import { User } from '../user/user.entity';
 import { cuid } from '../../libs/cuid';
@@ -18,14 +19,42 @@ export class ProductService {
   private productRepository: Repository<Product>;
   private variantRepository: Repository<ProductVariant>;
 
-  constructor(productRepository: Repository<Product>, variantRepository: Repository<ProductVariant>) {
+  constructor(
+    productRepository: Repository<Product>, 
+    variantRepository: Repository<ProductVariant>
+  ) {
     this.productRepository = productRepository;
     this.variantRepository = variantRepository;
   }
 
   private toProductResponse(product: Product): ProductResponseDto {
+    const categories: CategoryInfoDto[] = product.categories?.map(category => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      image: category.image,
+    })) || [];
+
     return {
       ...product,
+      categories,
+      variants: product.variants?.map(this.toVariantResponse) || [],
+    };
+  }
+
+  private toProductListResponse(product: Product): ProductResponseDto {
+    const categories: CategoryInfoDto[] = product.categories?.map(category => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      image: category.image,
+    })) || [];
+
+    return {
+      ...product,
+      categories,
       variants: product.variants?.map(this.toVariantResponse) || [],
     };
   }
@@ -108,10 +137,11 @@ export class ProductService {
     user: any,
     slug: string,
     thumbnailFile?: Express.Multer.File,
-    photosFiles?: Express.Multer.File[]
+    photosFiles?: Express.Multer.File[],
+    variantImageFiles?: Express.Multer.File[]
   ): Promise<ProductResponseDto> {
     const uniqueSlug = await this.generateUniqueSlug(slug);
-    const { variations, thumbnailBase64, photosBase64, ...productData } = data;
+    const { variations, thumbnailBase64, photosBase64, categoryIds, ...productData } = data;
 
     // Handle thumbnail upload
     const thumbnailUrl = await this.handleImageUpload(
@@ -120,7 +150,7 @@ export class ProductService {
       'products',
       `${uniqueSlug}-thumbnail`
     );
-    if (thumbnailUrl) productData.thumbnail_img = thumbnailUrl;
+    if (thumbnailUrl) productData.thumbnailImg = thumbnailUrl;
 
     // Handle multiple photos upload
     const photosUrls = await this.handleMultipleImageUploads(
@@ -134,19 +164,77 @@ export class ProductService {
     const product = this.productRepository.create({
       ...productData,
       slug: uniqueSlug,
-      added_by: user.roles && user.roles.length > 0 ? user.roles[0].name : 'user',
-      user_id: user.id,
+      addedBy: user.roles && user.roles.length > 0 ? user.roles[0].name : 'user',
+      userId: user.id,
     });
+
+    // Save product first
+    const savedProduct = await this.productRepository.save(product);
+
+    // Handle category associations
+    if (categoryIds && categoryIds.length > 0) {
+      const categoryRepository = this.productRepository.manager.getRepository(Category);
+      const categories = await categoryRepository.findByIds(categoryIds);
+      savedProduct.categories = categories;
+      await this.productRepository.save(savedProduct);
+    }
+
+    // Handle variants
     if (variations && Array.isArray(variations)) {
       product.variants = await Promise.all(
-        variations.map(async v => {
-          const uniqueSku = await this.generateUniqueSku(v.sku);
-          return this.variantRepository.create({ ...v, sku: uniqueSku });
+        variations.map(async (v, index) => {
+          // Provide default values for optional fields
+          const variantData = {
+            variant: v.variant || `Variant ${index + 1}`,
+            sku: v.sku || `SKU-${uniqueSlug}-${index + 1}`,
+            price: v.price || 0,
+            quantity: v.quantity || 0,
+            image: v.image,
+            ...v
+          };
+          
+          const uniqueSku = await this.generateUniqueSku(variantData.sku || `SKU-${uniqueSlug}-${index + 1}`);
+          const { imageBase64, ...finalVariantData } = variantData;
+          
+          // Handle variant image upload
+          let imageUrl = finalVariantData.image;
+          
+          // First try to use uploaded file
+          if (variantImageFiles && variantImageFiles[index]) {
+            const uploadedImage = await this.handleImageUpload(
+              variantImageFiles[index],
+              undefined,
+              'products/variants',
+              `${uniqueSlug}-variant-${index}-${uniqueSku}`
+            );
+            if (uploadedImage) imageUrl = uploadedImage;
+          }
+          // Fallback to base64 if no file
+          else if (imageBase64) {
+            const uploadedImage = await this.handleImageUpload(
+              undefined,
+              imageBase64,
+              'products/variants',
+              `${uniqueSlug}-variant-${index}-${uniqueSku}`
+            );
+            if (uploadedImage) imageUrl = uploadedImage;
+          }
+          
+          return this.variantRepository.create({ 
+            ...finalVariantData, 
+            sku: uniqueSku,
+            image: imageUrl,
+            product: savedProduct
+          });
         })
       );
+      await this.variantRepository.save(product.variants);
     }
-    const saved = await this.productRepository.save(product);
-    const found = await this.productRepository.findOne({ where: { id: saved.id }, relations: ['variants'] });
+
+    const found = await this.productRepository.findOne({ 
+      where: { id: savedProduct.id }, 
+      relations: ['variants', 'categories'] 
+    });
     if (!found) throw new Error('Product not found after save');
     return this.toProductResponse(found);
   }
@@ -154,16 +242,15 @@ export class ProductService {
   async findAll(query: GetProductsQueryDto): Promise<PaginatedResponseDto<ProductResponseDto>> {
     const { page = 1, limit = 10, sort = 'updatedAt', order = 'desc', filters = {} } = query;
     const skip = (page - 1) * limit;
-    const { search, category_id, is_variant, published, featured, min_price, max_price } = filters;
+    const { search, categoryId, categoryIds, isVariant, published, featured, minPrice, maxPrice } = filters;
 
     const baseConditions: FindOptionsWhere<Product> = {};
 
-    if (category_id) baseConditions.category_id = category_id;
-    if (is_variant !== undefined) baseConditions.is_variant = is_variant;
+    if (isVariant !== undefined) baseConditions.isVariant = isVariant;
     if (published !== undefined) baseConditions.published = published;
     if (featured !== undefined) baseConditions.featured = featured;
-    if (min_price !== undefined && max_price !== undefined) {
-      baseConditions.sale_price = Between(min_price, max_price);
+    if (minPrice !== undefined && maxPrice !== undefined) {
+      baseConditions.salePrice = Between(minPrice, maxPrice);
     }
 
     let where: FindOptionsWhere<Product>[] | FindOptionsWhere<Product> = baseConditions;
@@ -172,20 +259,50 @@ export class ProductService {
       where = [
         { ...baseConditions, name: Like(`%${search}%`) },
         { ...baseConditions, slug: Like(`%${search}%`) },
-        { ...baseConditions, short_description: Like(`%${search}%`) },
-        { ...baseConditions, long_description: Like(`%${search}%`) },
+        { ...baseConditions, shortDescription: Like(`%${search}%`) },
+        { ...baseConditions, longDescription: Like(`%${search}%`) },
       ];
     }
 
-    const [products, total] = await this.productRepository.findAndCount({
-      where,
-      skip,
-      take: limit,
-      order: { [sort]: order },
-      relations: ['variants'],
-    });
+    // Handle category filtering
+    let queryBuilder = this.productRepository.createQueryBuilder('product')
+      .leftJoinAndSelect('product.variants', 'variants')
+      .leftJoinAndSelect('product.categories', 'categories');
 
-    const productDtos = products.map(this.toProductResponse.bind(this));
+    // Handle category filtering - support both single and multiple categories
+    if (categoryIds && categoryIds.length > 0) {
+      queryBuilder = queryBuilder
+        .andWhere('categories.id IN (:...categoryIds)', { categoryIds });
+    } else if (categoryId) {
+      // Backward compatibility for single category
+      queryBuilder = queryBuilder
+        .andWhere('categories.id = :categoryId', { categoryId });
+    }
+
+    if (where) {
+      if (Array.isArray(where)) {
+        const orConditions = where.map(condition => {
+          const keys = Object.keys(condition);
+          return keys.map(key => `product.${key} = :${key}`).join(' AND ');
+        });
+        queryBuilder = queryBuilder.andWhere(`(${orConditions.join(' OR ')})`, where.reduce((acc, curr) => ({ ...acc, ...curr }), {}));
+      } else {
+        const keys = Object.keys(where);
+        keys.forEach(key => {
+          if ((where as any)[key] !== undefined) {
+            queryBuilder = queryBuilder.andWhere(`product.${key} = :${key}`, { [key]: (where as any)[key] });
+          }
+        });
+      }
+    }
+
+    const [products, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy(`product.${sort}`, order.toUpperCase() as 'ASC' | 'DESC')
+      .getManyAndCount();
+
+    const productDtos = products.map(this.toProductListResponse.bind(this));
 
     return {
       data: productDtos,
@@ -199,7 +316,10 @@ export class ProductService {
   }
 
   async findOne(id: string): Promise<ProductResponseDto> {
-    const product = await this.productRepository.findOne({ where: { id }, relations: ['variants'] });
+    const product = await this.productRepository.findOne({ 
+      where: { id }, 
+      relations: ['variants', 'categories'] 
+    });
     if (!product) throw new Error('Product not found');
     return this.toProductResponse(product);
   }
@@ -208,17 +328,23 @@ export class ProductService {
     id: string,
     data: UpdateProductDto,
     thumbnailFile?: Express.Multer.File,
-    photosFiles?: Express.Multer.File[]
+    photosFiles?: Express.Multer.File[],
+    variantImageFiles?: Express.Multer.File[]
   ): Promise<ProductResponseDto> {
-    const product = await this.productRepository.findOne({ where: { id }, relations: ['variants'] });
+    const product = await this.productRepository.findOne({ 
+      where: { id }, 
+      relations: ['variants', 'categories'] 
+    });
     if (!product) throw new Error('Product not found');
+    
     if (data.name && !data.slug) {
       data.slug = slugify(data.name, { lower: true });
     }
     if (data.slug) {
       data.slug = await this.generateUniqueSlug(data.slug);
     }
-    const { variations, thumbnailBase64, photosBase64, ...productData } = data;
+    
+    const { variations, thumbnailBase64, photosBase64, categoryIds, ...productData } = data;
 
     // Handle thumbnail upload
     const thumbnailUrl = await this.handleImageUpload(
@@ -227,7 +353,7 @@ export class ProductService {
       'products',
       `${data.slug || product.slug}-thumbnail`
     );
-    if (thumbnailUrl) productData.thumbnail_img = thumbnailUrl;
+    if (thumbnailUrl) productData.thumbnailImg = thumbnailUrl;
 
     // Handle multiple photos upload
     const photosUrls = await this.handleMultipleImageUploads(
@@ -239,17 +365,75 @@ export class ProductService {
     if (photosUrls.length > 0) productData.photos = photosUrls;
 
     Object.assign(product, productData);
+    
+    // Handle category associations
+    if (categoryIds && categoryIds.length > 0) {
+      const categoryRepository = this.productRepository.manager.getRepository(Category);
+      const categories = await categoryRepository.findByIds(categoryIds);
+      product.categories = categories;
+    } else if (categoryIds !== undefined) {
+      // If categoryIds is explicitly set to empty array, clear categories
+      product.categories = [];
+    }
+
+    // Handle variants
     if (variations) {
       await this.variantRepository.delete({ product: { id } });
       product.variants = await Promise.all(
-        variations.map(async v => {
-          const uniqueSku = await this.generateUniqueSku(v.sku);
-          return this.variantRepository.create({ ...v, sku: uniqueSku });
+        variations.map(async (v, index) => {
+          // Provide default values for optional fields
+          const variantData = {
+            variant: v.variant || `Variant ${index + 1}`,
+            sku: v.sku || `SKU-${data.slug || product.slug}-${index + 1}`,
+            price: v.price || 0,
+            quantity: v.quantity || 0,
+            image: v.image,
+            ...v
+          };
+          
+          const uniqueSku = await this.generateUniqueSku(variantData.sku || `SKU-${data.slug || product.slug}-${index + 1}`);
+          const { imageBase64, ...finalVariantData } = variantData;
+          
+          // Handle variant image upload
+          let imageUrl = finalVariantData.image;
+          
+          // First try to use uploaded file
+          if (variantImageFiles && variantImageFiles[index]) {
+            const uploadedImage = await this.handleImageUpload(
+              variantImageFiles[index],
+              undefined,
+              'products/variants',
+              `${data.slug || product.slug}-variant-${index}-${uniqueSku}`
+            );
+            if (uploadedImage) imageUrl = uploadedImage;
+          }
+          // Fallback to base64 if no file
+          else if (imageBase64) {
+            const uploadedImage = await this.handleImageUpload(
+              undefined,
+              imageBase64,
+              'products/variants',
+              `${data.slug || product.slug}-variant-${index}-${uniqueSku}`
+            );
+            if (uploadedImage) imageUrl = uploadedImage;
+          }
+          
+          return this.variantRepository.create({ 
+            ...finalVariantData, 
+            sku: uniqueSku,
+            image: imageUrl,
+            product
+          });
         })
       );
+      await this.variantRepository.save(product.variants);
     }
+    
     const saved = await this.productRepository.save(product);
-    const found = await this.productRepository.findOne({ where: { id: saved.id }, relations: ['variants'] });
+    const found = await this.productRepository.findOne({ 
+      where: { id: saved.id }, 
+      relations: ['variants', 'categories'] 
+    });
     if (!found) throw new Error('Product not found after update');
     return this.toProductResponse(found);
   }
@@ -264,7 +448,37 @@ export class ProductService {
   async createVariant(productId: string, data: CreateProductVariantDto): Promise<ProductVariantResponseDto> {
     const product = await this.productRepository.findOne({ where: { id: productId } });
     if (!product) throw new Error('Product not found');
-    const variant = this.variantRepository.create({ ...data, product });
+    
+    // Provide default values for optional fields
+    const variantData = {
+      variant: data.variant || 'Default Variant',
+      sku: data.sku || `SKU-${product.slug}-${Date.now()}`,
+      price: data.price || 0,
+      quantity: data.quantity || 0,
+      image: data.image,
+      ...data
+    };
+    
+    const { imageBase64, ...finalVariantData } = variantData;
+    
+    // Handle variant image upload
+    let imageUrl = finalVariantData.image;
+    if (imageBase64) {
+      const uniqueSku = await this.generateUniqueSku(variantData.sku || `SKU-${product.slug}-${Date.now()}`);
+      const uploadedImage = await this.handleImageUpload(
+        undefined,
+        imageBase64,
+        'products/variants',
+        `${product.slug}-variant-${uniqueSku}`
+      );
+      if (uploadedImage) imageUrl = uploadedImage;
+    }
+    
+    const variant = this.variantRepository.create({ 
+      ...finalVariantData, 
+      image: imageUrl,
+      product 
+    });
     const saved = await this.variantRepository.save(variant);
     return this.toVariantResponse(saved);
   }
@@ -272,7 +486,21 @@ export class ProductService {
   async updateVariant(id: string, data: UpdateProductVariantDto): Promise<ProductVariantResponseDto> {
     const variant = await this.variantRepository.findOne({ where: { id }, relations: ['product'] });
     if (!variant) throw new Error('Variant not found');
-    Object.assign(variant, data);
+    
+    const { imageBase64, ...variantData } = data;
+    
+    // Handle variant image upload
+    if (imageBase64) {
+      const uploadedImage = await this.handleImageUpload(
+        undefined,
+        imageBase64,
+        'products/variants',
+        `${variant.product.slug}-variant-${variant.sku}-updated`
+      );
+      if (uploadedImage) variantData.image = uploadedImage;
+    }
+    
+    Object.assign(variant, variantData);
     const saved = await this.variantRepository.save(variant);
     return this.toVariantResponse(saved);
   }
@@ -293,4 +521,4 @@ export class ProductService {
     const variants = await this.variantRepository.find({ where: { product: { id: productId } }, relations: ['product'] });
     return variants.map(this.toVariantResponse.bind(this));
   }
-} 
+}
