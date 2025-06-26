@@ -11,6 +11,7 @@ import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
 import { authenticate } from '../auth/middlewares/auth.middleware';
 import { upload } from '../../common/middlewares/upload.middleware';
 import { globalFormDataBoolean } from '../../common/middlewares/global-formdata-boolean';
+import { parseVariationsMiddleware } from '../../common/middlewares/parse-variations.middleware';
 
 const router = Router();
 const productRepository = AppDataSource.getRepository(Product);
@@ -26,15 +27,17 @@ router.post(
   authenticate,
   uploadProductImages,
   globalFormDataBoolean,
+  parseVariationsMiddleware,
   validateDto(CreateProductDto),
   ctrl.createProduct
 );
 router.get('/all', authenticate, ctrl.getProducts);
 router.get('/:id', ctrl.getProduct);
 router.put(
-  '/:id',
+  '/update/:id',
   uploadProductImages,
   globalFormDataBoolean,
+  parseVariationsMiddleware,
   validateDto(UpdateProductDto),
   ctrl.updateProduct
 );

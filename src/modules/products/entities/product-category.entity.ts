@@ -19,11 +19,11 @@ export class ProductCategory {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => Product, product => product.productCategories, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Product, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'productId' })
   product: Product;
 
-  @ManyToOne(() => Category, category => category.productCategories, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Category, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'categoryId' })
   category: Category;
 } 

@@ -18,6 +18,11 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
   const accessToken = header.split("Bearer ")[1];
 
   if (!accessToken) {
+    // Store auth error in res.locals for logging
+    res.locals.authError = {
+      type: "NO_TOKEN_PROVIDED",
+      message: RES_CODE.NO_TOKEN_PROVIDED
+    };
     res.status(401).json({ message: RES_CODE.NO_TOKEN_PROVIDED, code: 1 });
     return;
   }
@@ -32,6 +37,12 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!user) {
+      // Store auth error in res.locals for logging
+      res.locals.authError = {
+        type: "USER_NOT_FOUND",
+        message: RES_CODE["401"],
+        userId: decoded.id
+      };
       res.status(401).json({ message: RES_CODE["401"], code: 1 });
       return;
     }
@@ -40,11 +51,21 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     return next();
   } catch (error) {
     if (error instanceof Error && error.message === "Token expired") {
+      // Store auth error in res.locals for logging
+      res.locals.authError = {
+        type: "TOKEN_EXPIRED",
+        message: RES_CODE.TOKEN_EXPIRED
+      };
       res.status(401).json({ message: RES_CODE.TOKEN_EXPIRED, code: 1 });
       return;
     }
     
     if (error instanceof Error && error.message === "Invalid token") {
+      // Store auth error in res.locals for logging
+      res.locals.authError = {
+        type: "INVALID_TOKEN_SIGNATURE",
+        message: RES_CODE.INVALID_TOKEN_SIGNATURE
+      };
       res.status(401).json({ message: RES_CODE.INVALID_TOKEN_SIGNATURE, code: 1 });
       return;
     }

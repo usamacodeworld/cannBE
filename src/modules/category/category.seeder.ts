@@ -20,87 +20,37 @@ export class CategorySeeder extends BaseSeeder {
   }
 
   async run(): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    try {
+      // Truncate join table and categories with CASCADE
+      await queryRunner.query('TRUNCATE TABLE "product_categories", "categories" CASCADE');
+      console.log("Truncated product_categories and categories with CASCADE");
+    } finally {
+      await queryRunner.release();
+    }
+
     const categoryRepository = this.dataSource.getRepository(Category);
 
-    // Clear existing categories
-    await categoryRepository.clear();
-    console.log("Cleared existing categories");
+    // Define single dummy category
+    const dummyCategory = {
+      name: "Dummy Category",
+      description: "This is a dummy category for testing purposes",
+    };
 
-    // Define categories
-    const categories = [
-      {
-        name: "Flowers",
-        description: "Premium quality cannabis flowers and buds",
-        image: "path/to/flowers-image.jpg",
-      },
-      {
-        name: "Capsules",
-        description: "Precisely dosed cannabis capsules for consistent effects",
-        image: "path/to/capsules-image.jpg",
-      },
-      {
-        name: "Vapes",
-        description: "High-quality vaporizer cartridges and devices",
-        image: "path/to/vapes-image.jpg",
-      },
-      {
-        name: "Distillate",
-        description: "Pure cannabis distillate products",
-        image: "path/to/distillate-image.jpg",
-      },
-      {
-        name: "Edibles",
-        description: "Delicious cannabis-infused edible products",
-        image: "path/to/edibles-image.jpg",
-      },
-      {
-        name: "Gummies",
-        description: "Tasty cannabis-infused gummy treats",
-        image: "path/to/gummies-image.jpg",
-      },
-      {
-        name: "Pre-Rolls",
-        description: "Professionally rolled cannabis products",
-        image: "path/to/pre-rolls-image.jpg",
-      },
-      {
-        name: "Moonrocks",
-        description: "Premium moonrock cannabis products",
-        image: "path/to/moonrocks-image.jpg",
-      },
-      {
-        name: "Oil",
-        description: "Cannabis oils for various applications",
-        image: "path/to/oil-image.jpg",
-      },
-      {
-        name: "Pet Supplies",
-        description: "Cannabis-based products for pets",
-        image: "path/to/pet-supplies-image.jpg",
-      },
-      {
-        name: "Topicals",
-        description: "Cannabis-infused topical creams and lotions",
-        image: "path/to/topicals-image.jpg",
-      },
-    ];
-
-    // Create category records
-    const categoryEntities = categories.map((category) => {
-      return categoryRepository.create({
-        isParent: false,
-        name: category.name,
-        slug: this.slugify(category.name),
-        description: category.description,
-        image: category.image,
-        isActive: true,
-        isDeleted: false,
-        isFeatured: true,
-        isPopular: true,
-      });
+    // Create category record
+    const categoryEntity = categoryRepository.create({
+      isParent: false,
+      name: dummyCategory.name,
+      slug: this.slugify(dummyCategory.name),
+      description: dummyCategory.description,
+      isActive: true,
+      isDeleted: false,
+      isFeatured: true,
+      isPopular: true,
     });
 
-    await this.saveMany(categoryEntities, Category);
-    console.log("Categories seeded successfully");
+    await this.saveMany([categoryEntity], Category);
+    console.log("Dummy category seeded successfully");
   }
 }

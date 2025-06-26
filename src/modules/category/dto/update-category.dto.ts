@@ -14,14 +14,9 @@ export class UpdateCategoryDto {
     @IsOptional()
     description?: string;
 
-    @IsString()
+    @IsUUID()
     @IsOptional()
-    image?: string; // URL or base64 data
-
-    @IsString()
-    @IsOptional()
-    @ValidateIf((o) => o.imageBase64 !== undefined)
-    imageBase64?: string; // Alternative for base64 image upload
+    mediaFileId?: string;
 
     @IsBoolean()
     @IsOptional()

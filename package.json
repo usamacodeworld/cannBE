@@ -8,13 +8,16 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc --build",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
-    "migration:generate": "npm run typeorm migration:generate -- -d src/config/database.ts",
-    "migration:run": "npm run typeorm migration:run -- -d src/config/database.ts",
-    "migration:revert": "npm run typeorm migration:revert -- -d src/config/database.ts",
+    "migration:generate": "yarn typeorm migration:generate -- -d src/config/database.ts",
+    "migration:run": "yarn typeorm migration:run -- -d src/config/database.ts",
+    "migration:revert": "yarn typeorm migration:revert -- -d src/config/database.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "ts-node src/scripts/seed.ts",
     "seed:list": "ts-node src/scripts/list-seeders.ts",
-    "test:s3": "ts-node scripts/test-s3.ts"
+    "seed:countries": "ts-node scripts/seed-countries.ts",
+    "test:s3": "ts-node scripts/test-s3.ts",
+    "dev:cleanup": "ts-node scripts/dev-cleanup-before-migrate.ts",
+    "test:new-media": "ts-node scripts/test-new-media-system.ts"
   },
   "keywords": [
     "node",

@@ -48,6 +48,9 @@ export const validateDto = (dtoClass: any, source: 'body' | 'query' = 'body') =>
         };
       });
 
+      // Store validation errors in res.locals for logging
+      res.locals.validationErrors = formattedErrors;
+
       // console.log("Formatted errors:", formattedErrors);
       res.status(400).json({
         status: "error",

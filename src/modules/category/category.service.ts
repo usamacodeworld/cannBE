@@ -5,22 +5,32 @@ import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { CategoryResponseDto } from "./dto/category-response.dto";
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
-import { s3Service } from "../../libs/s3";
+import { MediaService } from "../media/media.service";
+import { ENTITY_TYPE } from "../media/entities/media-connect.entity";
 
 export class CategoryService {
   private categoryRepository: Repository<Category>;
 
-  constructor(categoryRepository: Repository<Category>) {
+  constructor(
+    categoryRepository: Repository<Category>,
+    private mediaService: MediaService
+  ) {
     this.categoryRepository = categoryRepository;
   }
 
-  private transformToResponseDto(category: Category): CategoryResponseDto {
+  private async transformToResponseDto(category: Category): Promise<CategoryResponseDto> {
+    // Get single media file for this category
+    const mediaFile = await this.mediaService.getEntitySingleMedia(
+      ENTITY_TYPE.CATEGORY,
+      category.id
+    );
+
     return {
       id: category.id,
       name: category.name,
       slug: category.slug,
       description: category.description || "",
-      image: category.image || "",
+      mediaFiles: mediaFile ? [mediaFile] : [],
       isActive: category.isActive || false,
       isDeleted: category.isDeleted || false,
       isFeatured: category.isFeatured || false,
@@ -28,6 +38,7 @@ export class CategoryService {
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
       parent: category.parent,
+      parentId: category.parentId,
     };
   }
 
@@ -58,95 +69,29 @@ export class CategoryService {
     return uniqueSlug;
   }
 
-  private async handleImageUpload(
-    imageData: string | undefined,
-    imageBase64: string | undefined,
-    uploadedFile: Express.Multer.File | undefined,
-    categoryName: string
-  ): Promise<string | undefined> {
-    try {
-      // Priority: uploaded file > base64 > image URL
-      if (uploadedFile) {
-        const result = await s3Service.uploadFile(
-          uploadedFile,
-          'categories',
-          `${this.slugify(categoryName)}-${Date.now()}`
-        );
-        return result.url;
-      }
-
-      if (imageBase64) {
-        // Validate base64 data
-        if (!this.isValidBase64Image(imageBase64)) {
-          throw new Error('Invalid base64 image data. Must be a valid data URL or base64 string.');
-        }
-        
-        const result = await s3Service.uploadBase64Image(
-          imageBase64,
-          'categories',
-          `${this.slugify(categoryName)}-${Date.now()}`
-        );
-        return result.url;
-      }
-
-      // If image is a URL, return as is
-      if (imageData && (imageData.startsWith('http://') || imageData.startsWith('https://'))) {
-        return imageData;
-      }
-
-      return imageData;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw new Error(`Failed to upload image: ${error}`);
-    }
-  }
-
-  private isValidBase64Image(base64Data: string): boolean {
-    // Check if it's a data URL
-    if (base64Data.startsWith('data:image/')) {
-      return true;
-    }
-    
-    // Check if it's a valid base64 string
-    try {
-      // Remove any whitespace
-      const cleanData = base64Data.replace(/\s/g, '');
-      
-      // Check if it's valid base64
-      if (cleanData.length % 4 !== 0) {
-        return false;
-      }
-      
-      // Try to decode it
-      Buffer.from(cleanData, 'base64');
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   async create(
     createCategoryDto: CreateCategoryDto,
-    uploadedFile?: Express.Multer.File
+    userId?: string
   ): Promise<CategoryResponseDto> {
     const slug = await this.generateUniqueSlug(createCategoryDto.slug || createCategoryDto.name);
-    
-    // Handle image upload
-    const imageUrl = await this.handleImageUpload(
-      createCategoryDto.image,
-      createCategoryDto.imageBase64,
-      uploadedFile,
-      createCategoryDto.name
-    );
 
     const category = this.categoryRepository.create({
       ...createCategoryDto,
       slug,
-      image: imageUrl,
       isParent: createCategoryDto.parentId ? true : createCategoryDto.isParent,
     });
     
     const savedCategory = await this.categoryRepository.save(category);
+
+    // Handle media file connection if mediaFileId is provided
+    if (createCategoryDto.mediaFileId) {
+      await this.mediaService.connectSingleMediaToEntity(
+        createCategoryDto.mediaFileId,
+        ENTITY_TYPE.CATEGORY,
+        savedCategory.id
+      );
+    }
+
     return this.transformToResponseDto(savedCategory);
   }
 
@@ -162,6 +107,7 @@ export class CategoryService {
     } = query;
     const skip = (page - 1) * limit;
     const { search, parentId, isActive, isFeatured, isPopular } = filters;
+    
     // Build where conditions
     const baseConditions: FindOptionsWhere<any> = {
       isDeleted: false,
@@ -193,16 +139,16 @@ export class CategoryService {
     });
 
     // Transform categories to response DTO
-    const categoryDtos = categories.map((category) =>
-      this.transformToResponseDto(category)
+    const categoryDtos = await Promise.all(
+      categories.map((category) => this.transformToResponseDto(category))
     );
 
     return {
       data: categoryDtos,
       meta: {
-        total,
         page,
         limit,
+        total,
         totalPages: Math.ceil(total / limit),
       },
     };
@@ -213,100 +159,73 @@ export class CategoryService {
       where: { id, isDeleted: false },
       relations: ["parent"],
     });
+
     if (!category) {
-      throw new Error(`Category with ID ${id} not found`);
+      throw new Error("Category not found");
     }
+
     return this.transformToResponseDto(category);
   }
-
 
   async update(
     id: string,
     updateCategoryDto: UpdateCategoryDto,
-    uploadedFile?: Express.Multer.File
+    userId?: string
   ): Promise<CategoryResponseDto> {
-    const category = await this.findOne(id);
+    const category = await this.categoryRepository.findOne({
+      where: { id, isDeleted: false },
+    });
 
-    // If name is being updated, generate new slug
-    if (updateCategoryDto.name) {
-      updateCategoryDto.slug = await this.generateUniqueSlug(
-        updateCategoryDto.name
-      );
+    if (!category) {
+      throw new Error("Category not found");
     }
 
-    // Handle image upload if provided
-    if (uploadedFile || updateCategoryDto.imageBase64 || updateCategoryDto.image) {
-      // Delete old image from S3 if it exists and is different from the new one
-      if (category.image && 
-          category.image !== updateCategoryDto.image && 
-          (category.image.startsWith('http://') || category.image.startsWith('https://'))) {
-        try {
-          await this.deleteImageFromS3(category.image);
-          console.log(`Old S3 image deleted for category: ${category.name}`);
-        } catch (error) {
-          console.error(`Failed to delete old S3 image for category ${category.name}:`, error);
-          // Continue with update even if old image deletion fails
-        }
-      }
-
-      const imageUrl = await this.handleImageUpload(
-        updateCategoryDto.image,
-        updateCategoryDto.imageBase64,
-        uploadedFile,
-        updateCategoryDto.name || category.name
-      );
-      updateCategoryDto.image = imageUrl;
+    // Handle slug generation if name is being updated
+    let slug = category.slug;
+    if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
+      slug = await this.generateUniqueSlug(updateCategoryDto.slug || updateCategoryDto.name);
     }
 
-    const { parentId, imageBase64, ...dtoWithoutParentId } = updateCategoryDto;
+    // Update category
+    Object.assign(category, {
+      ...updateCategoryDto,
+      slug,
+      isParent: updateCategoryDto.parentId ? true : updateCategoryDto.isParent,
+    });
 
-    Object.assign(category, dtoWithoutParentId);
-
-    if (parentId !== undefined && parentId !== category.parentId) {
-      // Update via relation property
-      category.parent = { id: parentId } as Category;
-    }
     const updatedCategory = await this.categoryRepository.save(category);
+
+    // Handle media file connection if mediaFileId is provided
+    if (updateCategoryDto.mediaFileId) {
+      // Delete existing media connections
+      await this.mediaService.deleteEntityMedia(ENTITY_TYPE.CATEGORY, id);
+
+      // Connect new media file
+      await this.mediaService.connectSingleMediaToEntity(
+        updateCategoryDto.mediaFileId,
+        ENTITY_TYPE.CATEGORY,
+        id
+      );
+    }
+
     return this.transformToResponseDto(updatedCategory);
   }
-
 
   async remove(id: string): Promise<void> {
     const category = await this.categoryRepository.findOne({
       where: { id, isDeleted: false },
     });
+
     if (!category) {
-      throw new Error(`Category with ID ${id} not found`);
+      throw new Error("Category not found");
     }
 
-    // Delete image from S3 if it exists
-    if (category.image) {
-      try {
-        await this.deleteImageFromS3(category.image);
-        console.log(`S3 image deleted for category: ${category.name}`);
-      } catch (error) {
-        console.error(`Failed to delete S3 image for category ${category.name}:`, error);
-        // Continue with category deletion even if S3 deletion fails
-      }
-    }
+    // Delete associated media files
+    await this.mediaService.deleteEntityMedia(ENTITY_TYPE.CATEGORY, id);
 
-    await this.categoryRepository.remove(category);
-  }
-
-  private async deleteImageFromS3(imageUrl: string): Promise<void> {
-    try {
-      // Extract the key from the S3 URL
-      // URL format: https://bucket-name.s3.region.amazonaws.com/key
-      const urlParts = imageUrl.split('.com/');
-      if (urlParts.length === 2) {
-        const key = urlParts[1];
-        await s3Service.deleteFile(key);
-      } else {
-        throw new Error('Invalid S3 URL format');
-      }
-    } catch (error) {
-      throw new Error(`Failed to delete image from S3: ${error}`);
-    }
+    // Soft delete the category
+    category.isDeleted = true;
+    await this.categoryRepository.save(category);
   }
 
   async findSubCategories(
@@ -316,62 +235,55 @@ export class CategoryService {
     const {
       page = 1,
       limit = 10,
-      filters = {},
-      sort = "createdAt",
+      sort = "updatedAt",
       order = "desc",
+      filters = {},
     } = query;
-
+    const skip = (page - 1) * limit;
     const { search, isActive, isFeatured, isPopular } = filters;
 
-    const skip = (page - 1) * limit;
-
     // Build where conditions
-    const whereConditions: any = {
-      parentId: parentId,
+    const baseConditions: FindOptionsWhere<any> = {
+      parentId,
       isDeleted: false,
     };
 
+    if (isActive !== undefined) baseConditions.isActive = isActive;
+    if (isFeatured !== undefined) baseConditions.isFeatured = isFeatured;
+    if (isPopular !== undefined) baseConditions.isPopular = isPopular;
+
+    let where: FindOptionsWhere<any>[] | FindOptionsWhere<any> = baseConditions;
+
     if (search) {
-      whereConditions.where = [
-        { name: Like(`%${search}%`) },
-        { slug: Like(`%${search}%`) },
-        { description: Like(`%${search}%`) },
+      where = [
+        { ...baseConditions, name: Like(`%${search}%`) },
+        { ...baseConditions, slug: Like(`%${search}%`) },
+        { ...baseConditions, description: Like(`%${search}%`) },
       ];
-    }
-
-    if (isActive !== undefined) {
-      whereConditions.isActive = isActive;
-    }
-
-    if (isFeatured !== undefined) {
-      whereConditions.isFeatured = isFeatured;
-    }
-
-    if (isPopular !== undefined) {
-      whereConditions.isPopular = isPopular;
     }
 
     // Get total count
     const [categories, total] = await this.categoryRepository.findAndCount({
-      where: whereConditions,
+      where,
       skip,
       take: limit,
       order: {
         [sort]: order,
       },
+      relations: ["parent"],
     });
 
     // Transform categories to response DTO
-    const categoryDtos = categories.map((category) =>
-      this.transformToResponseDto(category)
+    const categoryDtos = await Promise.all(
+      categories.map((category) => this.transformToResponseDto(category))
     );
 
     return {
       data: categoryDtos,
       meta: {
-        total,
         page,
         limit,
+        total,
         totalPages: Math.ceil(total / limit),
       },
     };
@@ -383,63 +295,71 @@ export class CategoryService {
     const {
       page = 1,
       limit = 10,
-      filters = {},
-      sort = "createdAt",
+      sort = "updatedAt",
       order = "desc",
+      filters = {},
     } = query;
     const skip = (page - 1) * limit;
-    const { search, parentId, isActive, isFeatured, isPopular } = filters;
-    // Build where conditions
-    const whereConditions: any = {
-      isParent: true,
-      isDeleted: false,
-    };
+    const { search, isActive, isFeatured, isPopular } = filters;
+
+    // Build where conditions for parent categories (no parentId or parentId is null)
+    const baseConditions: FindOptionsWhere<any>[] = [
+      { parentId: null, isDeleted: false },
+      { parentId: "", isDeleted: false },
+    ];
+
+    if (isActive !== undefined) {
+      baseConditions.forEach((condition: FindOptionsWhere<any>) => {
+        condition.isActive = isActive;
+      });
+    }
+    if (isFeatured !== undefined) {
+      baseConditions.forEach((condition: FindOptionsWhere<any>) => {
+        condition.isFeatured = isFeatured;
+      });
+    }
+    if (isPopular !== undefined) {
+      baseConditions.forEach((condition: FindOptionsWhere<any>) => {
+        condition.isPopular = isPopular;
+      });
+    }
+
+    let where: FindOptionsWhere<any>[] = baseConditions;
 
     if (search) {
-      whereConditions.where = [
-        { name: Like(`%${search}%`) },
-        { slug: Like(`%${search}%`) },
-        { description: Like(`%${search}%`) },
-      ];
-    }
-
-    if (isActive) {
-      whereConditions.isActive = isActive;
-    }
-
-    if (parentId) {
-      whereConditions.parentId = parentId;
-    }
-
-    if (isFeatured) {
-      whereConditions.isFeatured = isFeatured;
-    }
-
-    if (isPopular) {
-      whereConditions.isPopular = isPopular;
+      const searchConditions: FindOptionsWhere<any>[] = [];
+      baseConditions.forEach((baseCondition: FindOptionsWhere<any>) => {
+        searchConditions.push(
+          { ...baseCondition, name: Like(`%${search}%`) },
+          { ...baseCondition, slug: Like(`%${search}%`) },
+          { ...baseCondition, description: Like(`%${search}%`) }
+        );
+      });
+      where = searchConditions;
     }
 
     // Get total count
     const [categories, total] = await this.categoryRepository.findAndCount({
-      where: whereConditions,
+      where,
       skip,
       take: limit,
       order: {
         [sort]: order,
       },
+      relations: ["parent"],
     });
 
     // Transform categories to response DTO
-    const categoryDtos = categories.map((category) =>
-      this.transformToResponseDto(category)
+    const categoryDtos = await Promise.all(
+      categories.map((category) => this.transformToResponseDto(category))
     );
 
     return {
       data: categoryDtos,
       meta: {
-        total,
         page,
         limit,
+        total,
         totalPages: Math.ceil(total / limit),
       },
     };

@@ -226,12 +226,17 @@ export class CreateProductDto {
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       try {
-        return JSON.parse(value);
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+        if (typeof parsed === 'object') return [parsed];
+        return [];
       } catch {
         return [];
       }
     }
-    return value;
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'object') return [value];
+    return [];
   })
   variations?: CreateProductVariantDto[];
 } 

@@ -76,6 +76,22 @@ src/
 - CORS enabled
 - Input validation
 
-## License
+## Safe Migration for Developers
 
-ISC 
+If you or any developer faces migration errors (especially with tables like media_connect), run the following before running migrations:
+
+```sh
+yarn dev:cleanup
+```
+
+This will truncate problematic tables (media_connect, media_files, product_categories, categories, products) and ensure a clean state. **WARNING: This deletes all data in those tables. Do not use in production!**
+
+Then run:
+
+```sh
+yarn migration:run
+```
+
+This guarantees that migrations will run without errors in development.
+
+## License

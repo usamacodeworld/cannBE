@@ -29,6 +29,7 @@ app.use(requestLogger);
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/v1", V1Router);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -38,7 +39,7 @@ app.get("/", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// Error handling
+// Error handling middleware (must be after routes)
 app.use(
   (
     err: any,
@@ -46,12 +47,42 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    console.error(err.stack);
-    res.status(500).json({ message: "Something went wrong!" });
+    // Log the error details
+    console.error("=== Error Handler ===");
+    console.error("Error:", err.message);
+    console.error("Stack:", err.stack);
+    console.error("URL:", req.originalUrl);
+    console.error("Method:", req.method);
+    console.error("Body:", req.body);
+    console.error("Query:", req.query);
+    console.error("Params:", req.params);
+    console.error("=== End Error Handler ===");
+
+    // Set error information in res.locals for the request logger
+    res.locals.error = {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    };
+
+    // Determine status code
+    let statusCode = 500;
+    if (err.statusCode) {
+      statusCode = err.statusCode;
+    } else if (err.status) {
+      statusCode = err.status;
+    }
+
+    // Send error response
+    res.status(statusCode).json({ 
+      message: err.message || "Something went wrong!",
+      status: "error",
+      code: statusCode,
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
   }
 );
 
-app.use("/api/v1", V1Router);
 // Initialize TypeORM
 AppDataSource.initialize()
   .then(() => {

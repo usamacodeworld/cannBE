@@ -8,11 +8,19 @@ import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { RequirePermissions } from "../permissions/decorators/require-permissions.decorator";
 import { PERMISSION_TYPE } from "../permissions/entities/permission.entity";
 import { AppDataSource } from "../../config/database";
-import { uploadSingleImageField } from "../../common/middlewares/upload.middleware";
 import { globalFormDataBoolean } from "../../common/middlewares/global-formdata-boolean";
+import { MediaService } from "../media/media.service";
+import { S3Service } from "../../libs/s3";
 
 const router = Router();
 const categoryRepository = AppDataSource.getRepository(Category);
+const s3Service = new S3Service();
+const mediaService = new MediaService(
+  AppDataSource.getRepository(require("../media/entities/media-file.entity").MediaFile),
+  AppDataSource.getRepository(require("../media/entities/media-connect.entity").MediaConnect),
+  s3Service
+);
+
 const {
   createCategory,
   getCategories,
@@ -21,14 +29,13 @@ const {
   deleteCategory,
   getParentCategories,
   getSubCategories,
-} = categoryController(categoryRepository);
+} = categoryController(categoryRepository, mediaService);
 
 // Admin protected routes
 router.post(
   "/store",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.CREATE_CATEGORY),
-  uploadSingleImageField('image'),
   globalFormDataBoolean,
   validateDto(CreateCategoryDto),
   createCategory
@@ -66,7 +73,6 @@ router.put(
   "/update/:id",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.UPDATE_CATEGORY),
-  uploadSingleImageField('image'),
   globalFormDataBoolean,
   validateDto(UpdateCategoryDto),
   updateCategory

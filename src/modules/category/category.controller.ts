@@ -2,23 +2,31 @@ import { Request, Response } from "express";
 import { Repository } from "typeorm";
 import { Category } from "./category.entity";
 import { CategoryService } from "./category.service";
+import { MediaService } from "../media/media.service";
 import { v4 as uuidv4 } from "uuid";
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
 import slugify from "slug";
 
-export function categoryController(categoryRepository: Repository<Category>) {
-  const categoryService = new CategoryService(categoryRepository);
+export function categoryController(
+  categoryRepository: Repository<Category>,
+  mediaService: MediaService
+) {
+  const categoryService = new CategoryService(categoryRepository, mediaService);
 
   return {
     createCategory: async (req: Request, res: Response) => {
-       console.log("Data ===> ", req.body);
+      console.log("Data ===> ", req.body);
       try {
         const categoryData = req.body;
        
         if (!categoryData.slug) {
           categoryData.slug = slugify(categoryData.name, { lower: true });
         }
-        const category = await categoryService.create(categoryData, req.file);
+
+        // Get userId from authenticated user
+        const userId = (req as any).user?.id;
+        
+        const category = await categoryService.create(categoryData, userId);
         res.status(201).json({
           message: "Category created successfully",
           requestId: uuidv4(),
@@ -76,10 +84,13 @@ export function categoryController(categoryRepository: Repository<Category>) {
 
     updateCategory: async (req: Request, res: Response) => {
       try {
+        // Get userId from authenticated user
+        const userId = (req as any).user?.id;
+        
         const category = await categoryService.update(
           req.params.id,
           req.body,
-          req.file
+          userId
         );
         res.json({
           message: "Category updated successfully",

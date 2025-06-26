@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsUUID, ValidateIf } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsUUID } from 'class-validator';
 
 export class CreateCategoryDto {
     @IsString()
@@ -12,15 +12,6 @@ export class CreateCategoryDto {
     @IsOptional()
     description?: string;
 
-    @IsString()
-    @IsOptional()
-    image?: string; // URL or base64 data
-
-    @IsString()
-    @IsOptional()
-    @ValidateIf((o) => o.imageBase64 !== undefined)
-    imageBase64?: string; // Alternative for base64 image upload
-
     @IsBoolean()
     @IsOptional()
     isParent?: boolean;
@@ -28,6 +19,10 @@ export class CreateCategoryDto {
     @IsUUID()
     @IsOptional()
     parentId?: string;
+
+    @IsUUID()
+    @IsOptional()
+    mediaFileId?: string;
 
     @IsBoolean()
     @IsOptional()

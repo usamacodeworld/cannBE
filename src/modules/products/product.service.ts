@@ -33,7 +33,7 @@ export class ProductService {
       name: category.name,
       slug: category.slug,
       description: category.description,
-      image: category.image,
+      // image: category.image,
     })) || [];
 
     return {
@@ -49,7 +49,7 @@ export class ProductService {
       name: category.name,
       slug: category.slug,
       description: category.description,
-      image: category.image,
+      // image: category.image,
     })) || [];
 
     return {
@@ -181,8 +181,14 @@ export class ProductService {
 
     // Handle variants
     if (variations && Array.isArray(variations)) {
+      console.log('=== Processing Variations ===');
+      console.log('Total variations:', variations.length);
+      console.log('Total variant image files:', variantImageFiles?.length || 0);
+      
       product.variants = await Promise.all(
         variations.map(async (v, index) => {
+          console.log(`Processing variation ${index}:`, v);
+          
           // Provide default values for optional fields
           const variantData = {
             variant: v.variant || `Variant ${index + 1}`,
@@ -193,7 +199,8 @@ export class ProductService {
             ...v
           };
           
-          const uniqueSku = await this.generateUniqueSku(variantData.sku || `SKU-${uniqueSlug}-${index + 1}`);
+          const uniqueSku = v.sku ? String(v.sku) : `SKU-${uniqueSlug}-${index + 1}`;
+          const fileName = `${uniqueSlug}-variant-${index}-${uniqueSku || 'default'}`;
           const { imageBase64, ...finalVariantData } = variantData;
           
           // Handle variant image upload
@@ -201,34 +208,48 @@ export class ProductService {
           
           // First try to use uploaded file
           if (variantImageFiles && variantImageFiles[index]) {
+            console.log(`Found variant image file for index ${index}:`, variantImageFiles[index].fieldname);
             const uploadedImage = await this.handleImageUpload(
               variantImageFiles[index],
               undefined,
               'products/variants',
-              `${uniqueSlug}-variant-${index}-${uniqueSku}`
+              fileName
             );
-            if (uploadedImage) imageUrl = uploadedImage;
+            if (uploadedImage) {
+              imageUrl = uploadedImage;
+              console.log(`Uploaded variant image for index ${index}:`, uploadedImage);
+            }
+          } else {
+            console.log(`No variant image file found for index ${index}`);
           }
+          
           // Fallback to base64 if no file
-          else if (imageBase64) {
+          if (!imageUrl && imageBase64) {
+            console.log(`Using base64 image for variant ${index}`);
             const uploadedImage = await this.handleImageUpload(
               undefined,
               imageBase64,
               'products/variants',
-              `${uniqueSlug}-variant-${index}-${uniqueSku}`
+              fileName
             );
             if (uploadedImage) imageUrl = uploadedImage;
           }
           
-          return this.variantRepository.create({ 
+          const variant = this.variantRepository.create({ 
             ...finalVariantData, 
             sku: uniqueSku,
             image: imageUrl,
             product: savedProduct
           });
+          
+          console.log(`Created variant ${index} with SKU: ${uniqueSku}, Image: ${imageUrl}`);
+          return variant;
         })
       );
+      
+      console.log('Saving all variants...');
       await this.variantRepository.save(product.variants);
+      console.log('=== End Processing Variations ===');
     }
 
     const found = await this.productRepository.findOne({ 
@@ -239,7 +260,7 @@ export class ProductService {
     return this.toProductResponse(found);
   }
 
-  async findAll(query: GetProductsQueryDto): Promise<PaginatedResponseDto<ProductResponseDto>> {
+  async findAll(query: GetProductsQueryDto): Promise<PaginatedResponseDto<any>> {
     const { page = 1, limit = 10, sort = 'updatedAt', order = 'desc', filters = {} } = query;
     const skip = (page - 1) * limit;
     const { search, categoryId, categoryIds, isVariant, published, featured, minPrice, maxPrice } = filters;
@@ -265,9 +286,7 @@ export class ProductService {
     }
 
     // Handle category filtering
-    let queryBuilder = this.productRepository.createQueryBuilder('product')
-      .leftJoinAndSelect('product.variants', 'variants')
-      .leftJoinAndSelect('product.categories', 'categories');
+    let queryBuilder = this.productRepository.createQueryBuilder('product');
 
     // Handle category filtering - support both single and multiple categories
     if (categoryIds && categoryIds.length > 0) {
@@ -302,7 +321,11 @@ export class ProductService {
       .orderBy(`product.${sort}`, order.toUpperCase() as 'ASC' | 'DESC')
       .getManyAndCount();
 
-    const productDtos = products.map(this.toProductListResponse.bind(this));
+    // Remove variants and categories from the response
+    const productDtos = products.map((product) => {
+      const { variants, categories, ...rest } = product;
+      return rest;
+    });
 
     return {
       data: productDtos,
@@ -346,12 +369,14 @@ export class ProductService {
     
     const { variations, thumbnailBase64, photosBase64, categoryIds, ...productData } = data;
 
+    const uniqueSlug = (data.slug || product.slug || `product-${id}`) as string;
+
     // Handle thumbnail upload
     const thumbnailUrl = await this.handleImageUpload(
       thumbnailFile,
       thumbnailBase64,
       'products',
-      `${data.slug || product.slug}-thumbnail`
+      `${uniqueSlug}-thumbnail`
     );
     if (thumbnailUrl) productData.thumbnailImg = thumbnailUrl;
 
@@ -360,7 +385,7 @@ export class ProductService {
       Array.isArray(photosFiles) ? photosFiles : undefined,
       photosBase64,
       'products',
-      data.slug || product.slug
+      uniqueSlug
     );
     if (photosUrls.length > 0) productData.photos = photosUrls;
 
@@ -376,57 +401,65 @@ export class ProductService {
       product.categories = [];
     }
 
-    // Handle variants
-    if (variations) {
-      await this.variantRepository.delete({ product: { id } });
-      product.variants = await Promise.all(
-        variations.map(async (v, index) => {
-          // Provide default values for optional fields
-          const variantData = {
-            variant: v.variant || `Variant ${index + 1}`,
-            sku: v.sku || `SKU-${data.slug || product.slug}-${index + 1}`,
-            price: v.price || 0,
-            quantity: v.quantity || 0,
-            image: v.image,
-            ...v
-          };
-          
-          const uniqueSku = await this.generateUniqueSku(variantData.sku || `SKU-${data.slug || product.slug}-${index + 1}`);
-          const { imageBase64, ...finalVariantData } = variantData;
-          
-          // Handle variant image upload
-          let imageUrl = finalVariantData.image;
-          
-          // First try to use uploaded file
-          if (variantImageFiles && variantImageFiles[index]) {
-            const uploadedImage = await this.handleImageUpload(
-              variantImageFiles[index],
-              undefined,
-              'products/variants',
-              `${data.slug || product.slug}-variant-${index}-${uniqueSku}`
-            );
-            if (uploadedImage) imageUrl = uploadedImage;
-          }
-          // Fallback to base64 if no file
-          else if (imageBase64) {
-            const uploadedImage = await this.handleImageUpload(
-              undefined,
-              imageBase64,
-              'products/variants',
-              `${data.slug || product.slug}-variant-${index}-${uniqueSku}`
-            );
-            if (uploadedImage) imageUrl = uploadedImage;
-          }
-          
-          return this.variantRepository.create({ 
-            ...finalVariantData, 
+    // Advanced variant update logic
+    if (variations && Array.isArray(variations)) {
+      // Fetch all existing variants for this product
+      const existingVariants = await this.variantRepository.find({ where: { product: { id } } });
+      const existingSkuMap = new Map(existingVariants.map(v => [v.sku, v]));
+      const incomingSkuSet = new Set(variations.map(v => v.sku));
+      const updatedVariants: ProductVariant[] = [];
+
+      for (let index = 0; index < variations.length; index++) {
+        const v = variations[index];
+        let variant = existingSkuMap.get(v.sku || '');
+        let imageUrl = v.image;
+        const { imageBase64, ...finalVariantData } = v;
+        const uniqueSku = v.sku ? String(v.sku) : `SKU-${uniqueSlug}-${index + 1}`;
+        const fileName = `${uniqueSlug}-variant-${index}-${uniqueSku || 'default'}`;
+
+        // Handle variant image upload (by index)
+        if (variantImageFiles && variantImageFiles[index]) {
+          const uploadedImage = await this.handleImageUpload(
+            variantImageFiles[index],
+            undefined,
+            'products/variants',
+            fileName
+          );
+          if (uploadedImage) imageUrl = uploadedImage;
+        } else if (!imageUrl && imageBase64) {
+          const uploadedImage = await this.handleImageUpload(
+            undefined,
+            imageBase64,
+            'products/variants',
+            fileName
+          );
+          if (uploadedImage) imageUrl = uploadedImage;
+        }
+
+        if (variant) {
+          // Update existing variant
+          Object.assign(variant, finalVariantData, { image: imageUrl });
+          updatedVariants.push(await this.variantRepository.save(variant));
+        } else {
+          // Create new variant
+          const newVariant = this.variantRepository.create({
+            ...finalVariantData,
             sku: uniqueSku,
             image: imageUrl,
             product
           });
-        })
-      );
-      await this.variantRepository.save(product.variants);
+          updatedVariants.push(await this.variantRepository.save(newVariant));
+        }
+      }
+
+      // Delete variants not present in the incoming payload
+      for (const existing of existingVariants) {
+        if (!incomingSkuSet.has(existing.sku)) {
+          await this.variantRepository.remove(existing);
+        }
+      }
+
+      product.variants = updatedVariants;
     }
     
     const saved = await this.productRepository.save(product);
@@ -465,11 +498,12 @@ export class ProductService {
     let imageUrl = finalVariantData.image;
     if (imageBase64) {
       const uniqueSku = await this.generateUniqueSku(variantData.sku || `SKU-${product.slug}-${Date.now()}`);
+      const fileName = `${product.slug}-variant-${uniqueSku || 'default'}`;
       const uploadedImage = await this.handleImageUpload(
         undefined,
         imageBase64,
         'products/variants',
-        `${product.slug}-variant-${uniqueSku}`
+        fileName
       );
       if (uploadedImage) imageUrl = uploadedImage;
     }
@@ -491,11 +525,12 @@ export class ProductService {
     
     // Handle variant image upload
     if (imageBase64) {
+      const fileName = `${variant.product.slug}-variant-${variant.sku}-updated`;
       const uploadedImage = await this.handleImageUpload(
         undefined,
         imageBase64,
         'products/variants',
-        `${variant.product.slug}-variant-${variant.sku}-updated`
+        fileName
       );
       if (uploadedImage) variantData.image = uploadedImage;
     }

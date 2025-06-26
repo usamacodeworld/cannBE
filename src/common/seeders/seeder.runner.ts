@@ -7,6 +7,7 @@ import { CategorySeeder } from '../../modules/category/category.seeder';
 import { AttributeSeeder } from '../../modules/attributes/seeders/attribute.seeder';
 import { AttributeValueSeeder } from '../../modules/attributes/seeders/attribute-value.seeder';
 import { ProductSeeder } from '../../modules/products/seeders/product.seeder';
+import { CountrySeeder } from '../../modules/country/country.seeder';
 import { BaseSeeder } from './base.seeder';
 
 export class SeederRunner {
@@ -29,6 +30,7 @@ export class SeederRunner {
     this.seederRegistry.set('attributes', new AttributeSeeder(this.dataSource));
     this.seederRegistry.set('attribute-values', new AttributeValueSeeder(this.dataSource));
     this.seederRegistry.set('products', new ProductSeeder(this.dataSource));
+    this.seederRegistry.set('countries', new CountrySeeder(this.dataSource));
   }
 
   async run(): Promise<void> {
@@ -84,6 +86,7 @@ export class SeederRunner {
       new AttributeSeeder(this.dataSource),
       new AttributeValueSeeder(this.dataSource),
       new ProductSeeder(this.dataSource),
+      new CountrySeeder(this.dataSource),
     ];
 
     for (const seeder of seeders) {

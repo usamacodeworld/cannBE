@@ -7,10 +7,13 @@ import { Attribute } from '../modules/attributes/entities/attribute.entity';
 import { AttributeValue } from '../modules/attributes/entities/attribute-value.entity';
 import { Product } from '../modules/products/entities/product.entity';
 import { ProductVariant } from '../modules/products/entities/product-variant.entity';
+import { Country } from '../modules/country/country.entity';
+import { MediaFile } from '../modules/media/entities/media-file.entity';
+import { MediaConnect } from '../modules/media/entities/media-connect.entity';
 
 export const seederConfig: DataSourceOptions = {
   ...require('./typeorm.config').typeormConfig,
-  entities: [User, Role, Permission, Category, Attribute, AttributeValue, Product, ProductVariant],
+  entities: [User, Role, Permission, Category, Attribute, AttributeValue, Product, ProductVariant, Country, MediaFile, MediaConnect],
   synchronize: true, // Enable this only for seeding
   logging: true
 };
