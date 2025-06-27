@@ -31,7 +31,7 @@ export const authController = {
   refreshToken: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { refreshToken } = req.body;
-      
+
       if (!refreshToken) {
         res.status(400).json({
           message: 'Refresh token is required',
@@ -63,7 +63,7 @@ export const authController = {
       // Clear cookies
       res.clearCookie('accessToken');
       res.clearCookie('refreshToken');
-      
+
       res.status(200).json({
         message: 'Logout successful',
         code: 0,
