@@ -24,8 +24,8 @@ export class CategorySeeder extends BaseSeeder {
     await queryRunner.connect();
     try {
       // Truncate join table and categories with CASCADE
-      await queryRunner.query('TRUNCATE TABLE "product_categories", "categories" CASCADE');
-      console.log("Truncated product_categories and categories with CASCADE");
+      await queryRunner.query('TRUNCATE TABLE "categories", "categories" CASCADE');
+      console.log("Truncated categories and categories with CASCADE");
     } finally {
       await queryRunner.release();
     }
@@ -45,7 +45,6 @@ export class CategorySeeder extends BaseSeeder {
       slug: this.slugify(dummyCategory.name),
       description: dummyCategory.description,
       isActive: true,
-      isDeleted: false,
       isFeatured: true,
       isPopular: true,
     });

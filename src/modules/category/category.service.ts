@@ -5,40 +5,54 @@ import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { CategoryResponseDto } from "./dto/category-response.dto";
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
-import { MediaService } from "../media/media.service";
-import { ENTITY_TYPE } from "../media/entities/media-connect.entity";
+import { MediaFileResponseDto } from "../media/dto/media-file-response.dto";
+import { AppDataSource } from "../../config/database";
+import { MediaFile } from "../media/media-file.entity";
+
+const mediaRepo = AppDataSource.getRepository(MediaFile);
 
 export class CategoryService {
   private categoryRepository: Repository<Category>;
 
-  constructor(
-    categoryRepository: Repository<Category>,
-    private mediaService: MediaService
-  ) {
+  constructor(categoryRepository: Repository<Category>) {
     this.categoryRepository = categoryRepository;
   }
 
-  private async transformToResponseDto(category: Category): Promise<CategoryResponseDto> {
-    // Get single media file for this category
-    const mediaFile = await this.mediaService.getEntitySingleMedia(
-      ENTITY_TYPE.CATEGORY,
-      category.id
-    );
+  private async transformToResponseDto(
+    category: Category
+  ): Promise<CategoryResponseDto> {
+    const transformMediaFile = (
+      mediaFile: any
+    ): MediaFileResponseDto | undefined => {
+      if (!mediaFile) return undefined;
+      return {
+        id: mediaFile.id,
+        scope: mediaFile.scope,
+        uri: mediaFile.uri,
+        url: mediaFile.url,
+        fileName: mediaFile.fileName,
+        mimetype: mediaFile.mimetype,
+        size: mediaFile.size,
+        userId: mediaFile.userId,
+        createdAt: mediaFile.createdAt,
+        updatedAt: mediaFile.updatedAt,
+      };
+    };
 
     return {
       id: category.id,
       name: category.name,
       slug: category.slug,
       description: category.description || "",
-      mediaFiles: mediaFile ? [mediaFile] : [],
       isActive: category.isActive || false,
-      isDeleted: category.isDeleted || false,
       isFeatured: category.isFeatured || false,
       isPopular: category.isPopular || false,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
       parent: category.parent,
       parentId: category.parentId,
+      thumbnailImage: transformMediaFile(category.thumbnailImage),
+      coverImage: transformMediaFile(category.coverImage),
     };
   }
 
@@ -73,24 +87,17 @@ export class CategoryService {
     createCategoryDto: CreateCategoryDto,
     userId?: string
   ): Promise<CategoryResponseDto> {
-    const slug = await this.generateUniqueSlug(createCategoryDto.slug || createCategoryDto.name);
+    const slug = await this.generateUniqueSlug(
+      createCategoryDto.slug || createCategoryDto.name
+    );
 
     const category = this.categoryRepository.create({
       ...createCategoryDto,
       slug,
       isParent: createCategoryDto.parentId ? true : createCategoryDto.isParent,
     });
-    
-    const savedCategory = await this.categoryRepository.save(category);
 
-    // Handle media file connection if mediaFileId is provided
-    if (createCategoryDto.mediaFileId) {
-      await this.mediaService.connectSingleMediaToEntity(
-        createCategoryDto.mediaFileId,
-        ENTITY_TYPE.CATEGORY,
-        savedCategory.id
-      );
-    }
+    const savedCategory = await this.categoryRepository.save(category);
 
     return this.transformToResponseDto(savedCategory);
   }
@@ -107,11 +114,9 @@ export class CategoryService {
     } = query;
     const skip = (page - 1) * limit;
     const { search, parentId, isActive, isFeatured, isPopular } = filters;
-    
+
     // Build where conditions
-    const baseConditions: FindOptionsWhere<any> = {
-      isDeleted: false,
-    };
+    const baseConditions: FindOptionsWhere<any> = {};
 
     if (parentId) baseConditions.parentId = parentId;
     if (isActive !== undefined) baseConditions.isActive = isActive;
@@ -130,6 +135,7 @@ export class CategoryService {
 
     // Get total count
     const [categories, total] = await this.categoryRepository.findAndCount({
+      relations: ["thumbnailImage"],
       where,
       skip,
       take: limit,
@@ -156,8 +162,8 @@ export class CategoryService {
 
   async findOne(id: string): Promise<CategoryResponseDto> {
     const category = await this.categoryRepository.findOne({
-      where: { id, isDeleted: false },
-      relations: ["parent"],
+      where: { id },
+      relations: ["parent", "thumbnailImage", "coverImage"],
     });
 
     if (!category) {
@@ -173,17 +179,22 @@ export class CategoryService {
     userId?: string
   ): Promise<CategoryResponseDto> {
     const category = await this.categoryRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!category) {
       throw new Error("Category not found");
     }
 
+    const oldThumbnailImageId = category.thumbnailImageId;
+    const oldCoverImageId = category.coverImageId;
+
     // Handle slug generation if name is being updated
     let slug = category.slug;
     if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
-      slug = await this.generateUniqueSlug(updateCategoryDto.slug || updateCategoryDto.name);
+      slug = await this.generateUniqueSlug(
+        updateCategoryDto.slug || updateCategoryDto.name
+      );
     }
 
     // Update category
@@ -195,37 +206,46 @@ export class CategoryService {
 
     const updatedCategory = await this.categoryRepository.save(category);
 
-    // Handle media file connection if mediaFileId is provided
-    if (updateCategoryDto.mediaFileId) {
-      // Delete existing media connections
-      await this.mediaService.deleteEntityMedia(ENTITY_TYPE.CATEGORY, id);
-
-      // Connect new media file
-      await this.mediaService.connectSingleMediaToEntity(
-        updateCategoryDto.mediaFileId,
-        ENTITY_TYPE.CATEGORY,
-        id
-      );
+    // Delete old media files if they were replaced
+    if (
+      oldThumbnailImageId &&
+      oldThumbnailImageId !== updatedCategory.thumbnailImageId
+    ) {
+      try {
+        await mediaRepo.delete(oldThumbnailImageId);
+      } catch (error) {
+        console.error("Error deleting old thumbnail image:", error);
+      }
     }
 
-    return this.transformToResponseDto(updatedCategory);
+    if (oldCoverImageId && oldCoverImageId !== updatedCategory.coverImageId) {
+      try {
+        await mediaRepo.delete(oldCoverImageId);
+      } catch (error) {
+        console.error("Error deleting old cover image:", error);
+      }
+    }
+
+    // Reload the category with relations to get the updated media files
+    const categoryWithRelations = await this.categoryRepository.findOne({
+      where: { id: updatedCategory.id },
+      relations: ["parent", "thumbnailImage", "coverImage"],
+    });
+
+    return this.transformToResponseDto(categoryWithRelations!);
   }
 
   async remove(id: string): Promise<void> {
     const category = await this.categoryRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!category) {
       throw new Error("Category not found");
     }
 
-    // Delete associated media files
-    await this.mediaService.deleteEntityMedia(ENTITY_TYPE.CATEGORY, id);
-
-    // Soft delete the category
-    category.isDeleted = true;
-    await this.categoryRepository.save(category);
+    // Hard delete the category
+    await this.categoryRepository.delete(id);
   }
 
   async findSubCategories(
@@ -245,7 +265,6 @@ export class CategoryService {
     // Build where conditions
     const baseConditions: FindOptionsWhere<any> = {
       parentId,
-      isDeleted: false,
     };
 
     if (isActive !== undefined) baseConditions.isActive = isActive;
@@ -304,8 +323,8 @@ export class CategoryService {
 
     // Build where conditions for parent categories (no parentId or parentId is null)
     const baseConditions: FindOptionsWhere<any>[] = [
-      { parentId: null, isDeleted: false },
-      { parentId: "", isDeleted: false },
+      { parentId: null },
+      { parentId: "" },
     ];
 
     if (isActive !== undefined) {

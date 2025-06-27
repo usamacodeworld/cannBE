@@ -4,6 +4,7 @@ import { RES_CODE } from "../../../constants/responseCode";
 import { verifyToken, getAccessToken, getRefreshToken } from "../../../libs/jwt";
 import { AppDataSource } from "../../../config/database";
 import { UserInfo } from "@/types/auth";
+import { AuthService } from "../services/auth.service";
 
 declare global {
   namespace Express {
@@ -16,6 +17,7 @@ declare global {
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   const header = req.headers.authorization || "";
   const accessToken = header.split("Bearer ")[1];
+  const refreshToken = req.headers["x-refresh-token"] as string;
 
   if (!accessToken) {
     // Store auth error in res.locals for logging
@@ -51,13 +53,57 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     return next();
   } catch (error) {
     if (error instanceof Error && error.message === "Token expired") {
-      // Store auth error in res.locals for logging
-      res.locals.authError = {
-        type: "TOKEN_EXPIRED",
-        message: RES_CODE.TOKEN_EXPIRED
-      };
-      res.status(401).json({ message: RES_CODE.TOKEN_EXPIRED, code: 1 });
-      return;
+      // Try to refresh the token if refresh token is provided
+      if (refreshToken) {
+        try {
+          const authService = new AuthService();
+          const newTokens = await authService.refreshToken(refreshToken);
+          
+          // Set new tokens in response headers
+          res.setHeader('X-New-Access-Token', newTokens.accessToken);
+          res.setHeader('X-New-Refresh-Token', newTokens.refreshToken);
+          
+          // Get user info from the new access token
+          const newDecoded = verifyToken(newTokens.accessToken);
+          const userRepository = AppDataSource.getRepository(User);
+          const user = await userRepository.findOne({
+            where: { id: newDecoded.id },
+            relations: ['roles', 'roles.permissions']
+          });
+
+          if (!user) {
+            res.status(401).json({ message: RES_CODE["401"], code: 1 });
+            return;
+          }
+
+          req.user = user;
+          return next();
+        } catch (refreshError) {
+          // Refresh token is also invalid, return 401
+          res.locals.authError = {
+            type: "REFRESH_TOKEN_INVALID",
+            message: RES_CODE.TOKEN_EXPIRED
+          };
+          res.status(401).json({ 
+            message: RES_CODE.TOKEN_EXPIRED, 
+            code: 1,
+            requiresReauth: true 
+          });
+          return;
+        }
+      } else {
+        // No refresh token provided, return 401 with indication that refresh token is needed
+        res.locals.authError = {
+          type: "TOKEN_EXPIRED_NO_REFRESH",
+          message: RES_CODE.TOKEN_EXPIRED
+        };
+        res.status(401).json({ 
+          message: RES_CODE.TOKEN_EXPIRED, 
+          code: 1,
+          requiresRefreshToken: true 
+        });
+        return;
+      }
     }
     
     if (error instanceof Error && error.message === "Invalid token") {

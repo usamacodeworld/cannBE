@@ -9,17 +9,9 @@ import { RequirePermissions } from "../permissions/decorators/require-permission
 import { PERMISSION_TYPE } from "../permissions/entities/permission.entity";
 import { AppDataSource } from "../../config/database";
 import { globalFormDataBoolean } from "../../common/middlewares/global-formdata-boolean";
-import { MediaService } from "../media/media.service";
-import { S3Service } from "../../libs/s3";
 
 const router = Router();
 const categoryRepository = AppDataSource.getRepository(Category);
-const s3Service = new S3Service();
-const mediaService = new MediaService(
-  AppDataSource.getRepository(require("../media/entities/media-file.entity").MediaFile),
-  AppDataSource.getRepository(require("../media/entities/media-connect.entity").MediaConnect),
-  s3Service
-);
 
 const {
   createCategory,
@@ -29,14 +21,14 @@ const {
   deleteCategory,
   getParentCategories,
   getSubCategories,
-} = categoryController(categoryRepository, mediaService);
+} = categoryController(categoryRepository);
 
 // Admin protected routes
 router.post(
   "/store",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.CREATE_CATEGORY),
-  globalFormDataBoolean,
+  // globalFormDataBoolean,
   validateDto(CreateCategoryDto),
   createCategory
 );

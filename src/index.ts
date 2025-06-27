@@ -11,20 +11,13 @@ import qs from "qs";
 
 dotenv.config();
 
-
-if (!process.env.AWS_ACCESS_KEY_ID) {
-  process.env.AWS_ACCESS_KEY_ID = 'AKIATLRIUUO3CXVL7ZWR';
-  process.env.AWS_SECRET_ACCESS_KEY = '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';
-  process.env.AWS_REGION = 'us-east-1';
-  process.env.AWS_BUCKET_NAME = 'cannbe-files-v1';
-  console.log('AWS credentials set from code');
-}
-
 const app = express();
-app.set("query parser", (str: string) => qs.parse(str));
+const PORT = process.env.PORT || 3000;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 // Routes

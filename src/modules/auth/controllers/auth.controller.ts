@@ -28,6 +28,51 @@ export const authController = {
     }
   },
 
+  refreshToken: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { refreshToken } = req.body;
+      
+      if (!refreshToken) {
+        res.status(400).json({
+          message: 'Refresh token is required',
+          code: 1,
+        });
+        return;
+      }
+
+      const result = await authService.refreshToken(refreshToken);
+      res.status(200).json({
+        message: 'Token refreshed successfully',
+        data: result,
+        code: 0,
+      });
+    } catch (error) {
+      if (error instanceof AuthError) {
+        res.status(error.statusCode).json({
+          message: error.message,
+          code: 1,
+        });
+      } else {
+        next(error);
+      }
+    }
+  },
+
+  logout: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      // Clear cookies
+      res.clearCookie('accessToken');
+      res.clearCookie('refreshToken');
+      
+      res.status(200).json({
+        message: 'Logout successful',
+        code: 0,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   register: async (req: Request, res: Response) => {
     // This should be in a user controller, but keeping it here for now
     try {

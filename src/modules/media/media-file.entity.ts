@@ -1,8 +1,8 @@
 import { Entity, Column } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
+import { BaseEntity } from '../../common/entities/base.entity';
 
 export enum USER_SCOPE {
-  MARKETPLACE = 'marketplace',
+  ADMIN = 'admin',
   SELLER = 'seller',
   BUYER = 'buyer'
 }
@@ -10,8 +10,8 @@ export enum USER_SCOPE {
 @Entity({ name: 'media_files' })
 export class MediaFile extends BaseEntity {
   @Column({ 
-    comment: 'Resource scope e.g. marketplace, seller, buyer', 
-    default: USER_SCOPE.MARKETPLACE 
+    comment: 'Resource scope e.g. admin, seller, buyer', 
+    default: USER_SCOPE.ADMIN 
   })
   scope: USER_SCOPE;
 

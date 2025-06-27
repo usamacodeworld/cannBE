@@ -1,38 +1,42 @@
-import { IsString, IsOptional, IsBoolean, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsUUID } from "class-validator";
 
 export class CreateCategoryDto {
-    @IsString()
-    name: string;
+  @IsString()
+  name: string;
 
-    @IsString()
-    @IsOptional()
-    slug?: string;
+  @IsString()
+  @IsOptional()
+  slug?: string;
 
-    @IsString()
-    @IsOptional()
-    description?: string;
+  @IsString()
+  @IsOptional()
+  description?: string;
 
-    @IsBoolean()
-    @IsOptional()
-    isParent?: boolean;
+  @IsBoolean()
+  @IsOptional()
+  isParent?: boolean;
 
-    @IsUUID()
-    @IsOptional()
-    parentId?: string;
+  @IsUUID()
+  @IsOptional()
+  parentId?: string;
 
-    @IsUUID()
-    @IsOptional()
-    mediaFileId?: string;
+  @IsUUID()
+  @IsOptional()
+  thumbnailImageId?: string;
 
-    @IsBoolean()
-    @IsOptional()
-    isActive?: boolean;
+  @IsUUID()
+  @IsOptional()
+  coverImageId?: string;
 
-    @IsBoolean()
-    @IsOptional()
-    isFeatured?: boolean;
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 
-    @IsBoolean()
-    @IsOptional()
-    isPopular?: boolean;
-} 
+  @IsBoolean()
+  @IsOptional()
+  isFeatured?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isPopular?: boolean;
+}
