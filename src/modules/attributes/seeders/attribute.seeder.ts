@@ -1,7 +1,6 @@
 import { DataSource } from 'typeorm';
 import { BaseSeeder } from '../../../common/seeders/base.seeder';
 import { Attribute } from '../entities/attribute.entity';
-import { AttributeValue } from '../entities/attribute-value.entity';
 
 export class AttributeSeeder extends BaseSeeder {
   constructor(dataSource: DataSource) {
@@ -15,19 +14,9 @@ export class AttributeSeeder extends BaseSeeder {
 
     const attributeRepository = this.dataSource.getRepository(Attribute);
     const attributes = [
-      { name: 'Size' },
-      { name: 'Fabric' },
-      { name: 'Color' },
-      { name: 'Seater' },
-      { name: 'Shoe size' },
-      { name: 'Flavours' },
-      { name: 'Material' },
-      { name: 'Undergarments size' },
-      { name: 'Shades' },
-      { name: 'Quantity' },
-      { name: 'Packaging' },
-      { name: 'shapes' },
-      { name: 'Food Item' },
+      { 
+        name: 'Size'
+      }
     ];
 
     const attributeEntities = attributeRepository.create(attributes);

@@ -1,31 +1,7 @@
-import { IsString, IsOptional, IsArray, IsBoolean, IsNumber, IsDate, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsBoolean, IsNumber, IsDate, IsUUID } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { CreateProductVariantDto } from './create-product-variant.dto';
 
 export class UpdateProductDto {
-  @IsOptional()
-  @IsString()
-  addedBy?: string;
-
-  @IsOptional()
-  @IsString()
-  userId?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      try {
-        return JSON.parse(value);
-      } catch {
-        return [value];
-      }
-    }
-    return value;
-  })
-  categoryIds?: string[];
-
   @IsOptional()
   @IsString()
   name?: string;
@@ -47,11 +23,26 @@ export class UpdateProductDto {
     }
     return value;
   })
-  photos?: string[];
+  categoryIds?: string[];
 
   @IsOptional()
-  @IsString()
-  thumbnailImg?: string;
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [value];
+      }
+    }
+    return value;
+  })
+  photosIds?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  thumbnailImgId?: string;
 
   @IsOptional()
   @IsString()
@@ -230,17 +221,5 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateProductVariantDto)
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      try {
-        return JSON.parse(value);
-      } catch {
-        return [];
-      }
-    }
-    return value;
-  })
-  variations?: CreateProductVariantDto[];
+  variations?: any[];
 } 

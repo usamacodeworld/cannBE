@@ -1,6 +1,5 @@
-import { IsString, IsOptional, IsArray, IsBoolean, IsNumber, IsDate, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsBoolean, IsNumber, IsDate, IsUUID } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { CreateProductVariantDto } from './create-product-variant.dto';
 
 export class CreateProductDto {
   @IsString()
@@ -27,7 +26,7 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsUUID(undefined, { each: true })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       try {
@@ -38,11 +37,11 @@ export class CreateProductDto {
     }
     return value;
   })
-  photos?: string[];
+  photosIds?: string[];
 
   @IsOptional()
-  @IsString()
-  thumbnailImg?: string;
+  @IsUUID()
+  thumbnailImgId?: string;
 
   @IsOptional()
   @IsString()
@@ -221,8 +220,6 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateProductVariantDto)
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       try {
@@ -238,5 +235,12 @@ export class CreateProductDto {
     if (typeof value === 'object') return [value];
     return [];
   })
-  variations?: CreateProductVariantDto[];
+  variations?: Array<{
+    name: string;
+    variant: string;
+    sku: string;
+    price: number;
+    quantity: number;
+    imageId?: string;
+  }>;
 } 

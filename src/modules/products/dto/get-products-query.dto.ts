@@ -61,15 +61,15 @@ class ProductFilters {
 
 export class GetProductsQueryDto extends PaginationQueryDto {
   @IsOptional()
+  @ValidateNested()
+  @Type(() => ProductFilters)
+  filters?: ProductFilters;
+
+  @IsOptional()
   @IsString()
   sort?: string;
 
   @IsOptional()
   @IsString()
   order?: 'asc' | 'desc';
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => ProductFilters)
-  filters?: ProductFilters;
 } 

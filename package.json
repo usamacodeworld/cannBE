@@ -16,8 +16,7 @@
     "seed:list": "ts-node src/scripts/list-seeders.ts",
     "seed:countries": "ts-node scripts/seed-countries.ts",
     "test:s3": "ts-node scripts/test-s3.ts",
-    "dev:cleanup": "ts-node scripts/dev-cleanup-before-migrate.ts",
-    "test:new-media": "ts-node scripts/test-new-media-system.ts"
+    "dev:cleanup": "ts-node scripts/dev-cleanup-before-migrate.ts"
   },
   "keywords": [
     "node",

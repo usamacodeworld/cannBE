@@ -1,11 +1,25 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsUUID } from 'class-validator';
 
 export class UpdateAttributeValueDto {
-  @IsString()
-  @IsOptional()
-  value?: string;
+
 
   @IsString()
   @IsOptional()
-  colorCode?: string;
+  variant?: string;
+
+  @IsString()
+  @IsOptional()
+  sku?: string;
+
+  @IsNumber()
+  @IsOptional()
+  price?: number;
+
+  @IsNumber()
+  @IsOptional()
+  quantity?: number;
+
+  @IsUUID()
+  @IsOptional()
+  imageId?: string;
 } 

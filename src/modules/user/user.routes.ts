@@ -20,8 +20,17 @@ router.get(
   getProfile
 );
 
+// Get all users - both routes work
 router.get(
-  "/users",
+  "/",
+  authenticate,
+  RequirePermissions(PERMISSION_TYPE.READ_USER),
+  validateDto(GetUsersQueryDto),
+  getUsers
+);
+
+router.get(
+  "/all",
   authenticate,
   RequirePermissions(PERMISSION_TYPE.READ_USER),
   validateDto(GetUsersQueryDto),

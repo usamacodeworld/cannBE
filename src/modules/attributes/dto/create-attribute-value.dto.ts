@@ -1,11 +1,25 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsUUID } from 'class-validator';
 
 export class CreateAttributeValueDto {
-  @IsString()
-  @IsNotEmpty()
-  value: string;
+
 
   @IsString()
   @IsOptional()
-  colorCode?: string;
+  variant?: string;
+
+  @IsString()
+  @IsOptional()
+  sku?: string;
+
+  @IsNumber()
+  @IsOptional()
+  price?: number;
+
+  @IsNumber()
+  @IsOptional()
+  quantity?: number;
+
+  @IsUUID()
+  @IsOptional()
+  imageId?: string;
 } 

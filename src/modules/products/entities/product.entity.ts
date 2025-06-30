@@ -1,7 +1,7 @@
-import { Entity, Column, ManyToOne, OneToMany, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
-import { ProductVariant } from './product-variant.entity';
 import { Category } from '../../category/category.entity';
+import { MediaFile } from '../../media/media-file.entity';
 
 @Entity('products')
 export class Product extends BaseEntity {
@@ -18,10 +18,17 @@ export class Product extends BaseEntity {
   slug: string;
 
   @Column('simple-array', { nullable: true })
-  photos: string[];
+  photosIds: string[];
 
   @Column({ nullable: true })
-  thumbnailImg: string;
+  thumbnailImgId: string;
+
+  @ManyToOne(() => MediaFile, { nullable: true })
+  @JoinColumn({ name: 'thumbnailImgId' })
+  thumbnailImg?: MediaFile;
+
+  @Column('simple-array', { nullable: true })
+  categoryIds: string[];
 
   @Column('simple-array', { nullable: true })
   tags: string[];
@@ -100,11 +107,4 @@ export class Product extends BaseEntity {
 
   @Column({ nullable: true })
   externalLinkBtn: string;
-
-  @OneToMany(() => ProductVariant, variant => variant.product, { cascade: true })
-  variants: ProductVariant[];
-
-  @ManyToMany(() => Category)
-  @JoinTable()
-  categories: Category[];
 } 

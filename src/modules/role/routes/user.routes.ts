@@ -12,6 +12,6 @@ router.post("/register", validateDto(CreateUserDto), register);
 
 // Protected routes
 router.get("/profile", authenticate, getProfile);
-router.get("/", authenticate, validateDto(GetUsersQueryDto), getUsers);
+router.get("/all", authenticate, validateDto(GetUsersQueryDto), getUsers);
 
 export default router;

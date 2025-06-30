@@ -66,7 +66,7 @@ export const getUserProfile = async (
 export const getUsers = async (
   query: GetUsersQueryDto
 ): Promise<PaginatedResponseDto<UserResponseDto>> => {
-  const { page = 1, limit = 10, search, accountType, emailVerified } = query;
+  const { page = 1, limit = 10, sort = 'createdAt', order = 'desc', search, accountType, emailVerified } = query;
   const skip = (page - 1) * limit;
 
   // Build where conditions
@@ -95,7 +95,7 @@ export const getUsers = async (
     skip,
     take: limit,
     order: {
-      createdAt: "DESC",
+      [sort]: order.toUpperCase(),
     },
   });
 
