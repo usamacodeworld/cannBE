@@ -13,7 +13,7 @@ router.post(
 );
 
 // Get all media files with pagination
-router.get("/", mediaController.getAllMedia.bind(mediaController));
+router.get("/all", mediaController.getAllMedia.bind(mediaController));
 
 // Get a single media file by ID
 router.get("/:id", mediaController.getMediaById.bind(mediaController));
