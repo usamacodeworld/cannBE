@@ -5,10 +5,8 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-  ManyToMany,
 } from "typeorm";
 import { BaseEntity } from "../../common/entities/base.entity";
-import { Product } from "../products/entities/product.entity";
 import { MediaFile } from "../media/media-file.entity";
 
 @Entity("categories")
@@ -56,6 +54,5 @@ export class Category extends BaseEntity {
   @Column({ default: false, nullable: true })
   isPopular?: boolean;
 
-  @ManyToMany(() => Product, (product) => product.categories)
-  products: Product[];
+
 }

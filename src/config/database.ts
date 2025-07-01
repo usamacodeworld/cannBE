@@ -23,6 +23,7 @@ export const AppDataSource = new DataSource({
     "src/modules/products/entities/product.entity.ts",
     "src/modules/products/entities/product-variant.entity.ts",
     "src/modules/media/media-file.entity.ts",
+    "src/modules/cart/entities/cart.entity.ts",
   ],
   migrations: ["src/migrations/*.ts"],
   subscribers: ["src/subscribers/*.ts"],

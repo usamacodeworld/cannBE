@@ -8,8 +8,9 @@ import { Product } from "../modules/products/entities/product.entity";
 import { Attribute } from "../modules/attributes/entities/attribute.entity";
 import { AttributeValue } from "../modules/attributes/entities/attribute-value.entity";
 import { MediaFile } from "../modules/media/media-file.entity";
+import { Cart } from "../modules/cart/entities/cart.entity";
 
-export const AppDataSource = new DataSource({
+export const AppSeederDataSource = new DataSource({
   type: "postgres",
   host: process.env.DB_HOST || "localhost",
   port: parseInt(process.env.DB_PORT || "5432"),
@@ -28,6 +29,7 @@ export const AppDataSource = new DataSource({
     Attribute,
     AttributeValue,
     MediaFile,
+    Cart,
   ],
   migrations: ["src/migrations/*.ts"],
   subscribers: [],
