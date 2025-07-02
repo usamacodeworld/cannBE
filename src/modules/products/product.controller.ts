@@ -52,9 +52,7 @@ class ProductController extends BaseController {
       const product = await this.productService.createProduct(
         productData,
         user,
-        slugToUse,
-        thumbnailFile as Express.Multer.File,
-        photosFiles as Express.Multer.File[]
+        slugToUse
       );
 
       this.createSuccessResponse(

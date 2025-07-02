@@ -63,124 +63,67 @@ export class HomeService {
         dealsLimit = 4
       } = query;
 
-      // Get featured products
-      const featuredProductsQuery = `
-        SELECT p.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM products p
-        LEFT JOIN media_files mf ON p."thumbnailImgId" = mf.id
-        WHERE p.featured = true 
-          AND p.published = true 
-          AND p.approved = true
-        ORDER BY p."numOfSales" DESC, p."createdAt" DESC
-        LIMIT $1
-      `;
-      const featuredProducts = await this.productRepository.query(featuredProductsQuery, [featuredProductsLimit]);
+      // Get featured products using TypeORM
+      const featuredProducts = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.featured = :featured', { featured: true })
+        .andWhere('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .orderBy('product.numOfSales', 'DESC')
+        .addOrderBy('product.createdAt', 'DESC')
+        .take(featuredProductsLimit)
+        .getMany();
 
-      // Get new arrivals
-      const newArrivalsQuery = `
-        SELECT p.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM products p
-        LEFT JOIN media_files mf ON p."thumbnailImgId" = mf.id
-        WHERE p.published = true 
-          AND p.approved = true
-        ORDER BY p."createdAt" DESC
-        LIMIT $1
-      `;
-      const newArrivals = await this.productRepository.query(newArrivalsQuery, [newArrivalsLimit]);
+      // Get new arrivals using TypeORM
+      const newArrivals = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .orderBy('product.createdAt', 'DESC')
+        .take(newArrivalsLimit)
+        .getMany();
 
-      // Get popular categories
-      const popularCategoriesQuery = `
-        SELECT c.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM categories c
-        LEFT JOIN media_files mf ON c."thumbnailImageId" = mf.id
-        WHERE c."isActive" = true 
-          AND c."isPopular" = true
-        ORDER BY c."updatedAt" DESC
-        LIMIT $1
-      `;
-      const popularCategories = await this.categoryRepository.query(popularCategoriesQuery, [popularCategoriesLimit]);
+      // Get popular categories using TypeORM
+      const popularCategories = await this.categoryRepository
+        .createQueryBuilder('category')
+        .leftJoinAndSelect('category.thumbnailImage', 'thumbnailImage')
+        .where('category.isActive = :isActive', { isActive: true })
+        .andWhere('category.isPopular = :isPopular', { isPopular: true })
+        .orderBy('category.updatedAt', 'DESC')
+        .take(popularCategoriesLimit)
+        .getMany();
 
-      // Get trending products (based on sales and rating)
-      const trendingProductsQuery = `
-        SELECT p.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM products p
-        LEFT JOIN media_files mf ON p."thumbnailImgId" = mf.id
-        WHERE p.published = true 
-          AND p.approved = true
-          AND p.rating >= 4.0
-        ORDER BY p."numOfSales" DESC, p.rating DESC
-        LIMIT $1
-      `;
-      const trendingProducts = await this.productRepository.query(trendingProductsQuery, [trendingProductsLimit]);
+      // Get trending products using TypeORM (based on sales and rating)
+      const trendingProducts = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .andWhere('product.rating >= :rating', { rating: 4.0 })
+        .orderBy('product.numOfSales', 'DESC')
+        .addOrderBy('product.rating', 'DESC')
+        .take(trendingProductsLimit)
+        .getMany();
 
-      // Get deals (products with discount)
-      const dealsQuery = `
-        SELECT p.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM products p
-        LEFT JOIN media_files mf ON p."thumbnailImgId" = mf.id
-        WHERE p.published = true 
-          AND p.approved = true
-          AND p.discount > 0
-          AND p."discountStartDate" <= NOW()
-          AND p."discountEndDate" >= NOW()
-        ORDER BY p.discount DESC, p."numOfSales" DESC
-        LIMIT $1
-      `;
-      const deals = await this.productRepository.query(dealsQuery, [dealsLimit]);
+      // Get deals using TypeORM (products with discount)
+      const deals = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .andWhere('product.discount > :discount', { discount: 0 })
+        .andWhere('product.discountStartDate <= :now', { now: new Date() })
+        .andWhere('product.discountEndDate >= :now', { now: new Date() })
+        .orderBy('product.discount', 'DESC')
+        .addOrderBy('product.numOfSales', 'DESC')
+        .take(dealsLimit)
+        .getMany();
 
-      // Format products with thumbnails
-      const formatProducts = (products: any[]) => {
-        return products.map((product: any) => ({
+      // Format products with thumbnails (simplified for TypeORM entities)
+      const formatProducts = (products: Product[]) => {
+        return products.map((product: Product) => ({
           id: product.id,
           name: product.name,
           slug: product.slug,
@@ -193,17 +136,17 @@ export class HomeService {
           numOfSales: product.numOfSales,
           stock: product.stock,
           thumbnailImgId: product.thumbnailImgId,
-          thumbnailImg: product.thumbnail_id ? {
-            id: product.thumbnail_id,
-            scope: product.thumbnail_scope,
-            uri: product.thumbnail_uri,
-            url: product.thumbnail_url,
-            fileName: product.thumbnail_fileName,
-            mimetype: product.thumbnail_mimetype,
-            size: product.thumbnail_size,
-            userId: product.thumbnail_userId,
-            createdAt: product.thumbnail_createdAt,
-            updatedAt: product.thumbnail_updatedAt
+          thumbnailImg: product.thumbnailImg ? {
+            id: product.thumbnailImg.id,
+            scope: product.thumbnailImg.scope.toString(),
+            uri: product.thumbnailImg.uri || '',
+            url: product.thumbnailImg.url || '',
+            fileName: product.thumbnailImg.fileName,
+            mimetype: product.thumbnailImg.mimetype,
+            size: product.thumbnailImg.size,
+            userId: product.thumbnailImg.userId || '',
+            createdAt: product.thumbnailImg.createdAt,
+            updatedAt: product.thumbnailImg.updatedAt
           } : null,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt
@@ -211,8 +154,8 @@ export class HomeService {
       };
 
       // Format deals with additional discount date fields
-      const formatDeals = (products: any[]) => {
-        return products.map((product: any) => ({
+      const formatDeals = (products: Product[]) => {
+        return products.map((product: Product) => ({
           id: product.id,
           name: product.name,
           slug: product.slug,
@@ -227,17 +170,17 @@ export class HomeService {
           numOfSales: product.numOfSales,
           stock: product.stock,
           thumbnailImgId: product.thumbnailImgId,
-          thumbnailImg: product.thumbnail_id ? {
-            id: product.thumbnail_id,
-            scope: product.thumbnail_scope,
-            uri: product.thumbnail_uri,
-            url: product.thumbnail_url,
-            fileName: product.thumbnail_fileName,
-            mimetype: product.thumbnail_mimetype,
-            size: product.thumbnail_size,
-            userId: product.thumbnail_userId,
-            createdAt: product.thumbnail_createdAt,
-            updatedAt: product.thumbnail_updatedAt
+          thumbnailImg: product.thumbnailImg ? {
+            id: product.thumbnailImg.id,
+            scope: product.thumbnailImg.scope.toString(),
+            uri: product.thumbnailImg.uri || '',
+            url: product.thumbnailImg.url || '',
+            fileName: product.thumbnailImg.fileName,
+            mimetype: product.thumbnailImg.mimetype,
+            size: product.thumbnailImg.size,
+            userId: product.thumbnailImg.userId || '',
+            createdAt: product.thumbnailImg.createdAt,
+            updatedAt: product.thumbnailImg.updatedAt
           } : null,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt
@@ -297,37 +240,26 @@ export class HomeService {
       const { page = 1, limit = 12 } = query;
       const skip = (page - 1) * limit;
 
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM products p
-        WHERE p.featured = true 
-          AND p.published = true 
-          AND p.approved = true
-      `;
-      const countResult = await this.productRepository.query(countQuery);
-      const total = parseInt(countResult[0].total);
+      // Get total count using TypeORM
+      const total = await this.productRepository
+        .createQueryBuilder('product')
+        .where('product.featured = :featured', { featured: true })
+        .andWhere('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .getCount();
 
-      const productsQuery = `
-        SELECT p.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM products p
-        LEFT JOIN media_files mf ON p."thumbnailImgId" = mf.id
-        WHERE p.featured = true 
-          AND p.published = true 
-          AND p.approved = true
-        ORDER BY p."numOfSales" DESC, p."createdAt" DESC
-        LIMIT $1 OFFSET $2
-      `;
-      const products = await this.productRepository.query(productsQuery, [limit, skip]);
+      // Get products using TypeORM
+      const products = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.featured = :featured', { featured: true })
+        .andWhere('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .orderBy('product.numOfSales', 'DESC')
+        .addOrderBy('product.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getMany();
 
       const formattedProducts = products.map((product: any) => ({
         id: product.id,
@@ -377,35 +309,23 @@ export class HomeService {
       const { page = 1, limit = 12 } = query;
       const skip = (page - 1) * limit;
 
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM products p
-        WHERE p.published = true 
-          AND p.approved = true
-      `;
-      const countResult = await this.productRepository.query(countQuery);
-      const total = parseInt(countResult[0].total);
+      // Get total count using TypeORM
+      const total = await this.productRepository
+        .createQueryBuilder('product')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .getCount();
 
-      const productsQuery = `
-        SELECT p.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM products p
-        LEFT JOIN media_files mf ON p."thumbnailImgId" = mf.id
-        WHERE p.published = true 
-          AND p.approved = true
-        ORDER BY p."createdAt" DESC
-        LIMIT $1 OFFSET $2
-      `;
-      const products = await this.productRepository.query(productsQuery, [limit, skip]);
+      // Get products using TypeORM
+      const products = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .orderBy('product.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getMany();
 
       const formattedProducts = products.map((product: any) => ({
         id: product.id,
@@ -455,41 +375,30 @@ export class HomeService {
       const { page = 1, limit = 12 } = query;
       const skip = (page - 1) * limit;
 
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM products p
-        WHERE p.published = true 
-          AND p.approved = true
-          AND p.discount > 0
-          AND p."discountStartDate" <= NOW()
-          AND p."discountEndDate" >= NOW()
-      `;
-      const countResult = await this.productRepository.query(countQuery);
-      const total = parseInt(countResult[0].total);
+      // Get total count using TypeORM
+      const total = await this.productRepository
+        .createQueryBuilder('product')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .andWhere('product.discount > :discount', { discount: 0 })
+        .andWhere('product.discountStartDate <= :now', { now: new Date() })
+        .andWhere('product.discountEndDate >= :now', { now: new Date() })
+        .getCount();
 
-      const productsQuery = `
-        SELECT p.*, 
-               mf.id as "thumbnail_id",
-               mf.scope as "thumbnail_scope",
-               mf.uri as "thumbnail_uri",
-               mf.url as "thumbnail_url",
-               mf."fileName" as "thumbnail_fileName",
-               mf.mimetype as "thumbnail_mimetype",
-               mf.size as "thumbnail_size",
-               mf."userId" as "thumbnail_userId",
-               mf."createdAt" as "thumbnail_createdAt",
-               mf."updatedAt" as "thumbnail_updatedAt"
-        FROM products p
-        LEFT JOIN media_files mf ON p."thumbnailImgId" = mf.id
-        WHERE p.published = true 
-          AND p.approved = true
-          AND p.discount > 0
-          AND p."discountStartDate" <= NOW()
-          AND p."discountEndDate" >= NOW()
-        ORDER BY p.discount DESC, p."numOfSales" DESC
-        LIMIT $1 OFFSET $2
-      `;
-      const products = await this.productRepository.query(productsQuery, [limit, skip]);
+      // Get products using TypeORM
+      const products = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .andWhere('product.discount > :discount', { discount: 0 })
+        .andWhere('product.discountStartDate <= :now', { now: new Date() })
+        .andWhere('product.discountEndDate >= :now', { now: new Date() })
+        .orderBy('product.discount', 'DESC')
+        .addOrderBy('product.numOfSales', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getMany();
 
       const formattedProducts = products.map((product: any) => ({
         id: product.id,
@@ -533,6 +442,135 @@ export class HomeService {
       };
     } catch (error: any) {
       throw new Error(`Error fetching deals: ${error.message}`);
+    }
+  }
+
+  async getCustomHomeData(query: GetHomeDataQueryDto): Promise<any> {
+    try {
+      const {
+        featuredProductsLimit = 8,
+        newArrivalsLimit = 6,
+        dealsLimit = 6
+      } = query;
+
+      // Get featured products using TypeORM
+      const featuredProducts = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.featured = :featured', { featured: true })
+        .andWhere('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .orderBy('product.numOfSales', 'DESC')
+        .addOrderBy('product.createdAt', 'DESC')
+        .take(featuredProductsLimit)
+        .getMany();
+
+      // Get random products using TypeORM (alternative approach)
+      const totalProducts = await this.productRepository
+        .createQueryBuilder('product')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .getCount();
+
+      const randomOffset = Math.floor(Math.random() * Math.max(0, totalProducts - newArrivalsLimit));
+      
+      const newProducts = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .skip(randomOffset)
+        .take(newArrivalsLimit)
+        .getMany();
+
+      // Get variant products using TypeORM
+      const variantProducts = await this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.thumbnailImg', 'thumbnailImg')
+        .where('product.isVariant = :isVariant', { isVariant: true })
+        .andWhere('product.published = :published', { published: true })
+        .andWhere('product.approved = :approved', { approved: true })
+        .orderBy('product.createdAt', 'DESC')
+        .take(dealsLimit)
+        .getMany();
+
+      // Get categories using TypeORM
+      const categories = await this.categoryRepository
+        .createQueryBuilder('category')
+        .leftJoinAndSelect('category.thumbnailImage', 'thumbnailImage')
+        .where('category.isActive = :isActive', { isActive: true })
+        .orderBy('category.updatedAt', 'DESC')
+        .take(8)
+        .getMany();
+
+      // Format products function (simplified since TypeORM handles relations)
+      const formatProducts = (products: Product[]) => {
+        return products.map((product: Product) => ({
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          shortDescription: product.shortDescription,
+          regularPrice: product.regularPrice,
+          salePrice: product.salePrice,
+          discount: product.discount,
+          discountType: product.discountType,
+          rating: product.rating,
+          numOfSales: product.numOfSales,
+          stock: product.stock,
+          thumbnailImgId: product.thumbnailImgId,
+          thumbnailImg: product.thumbnailImg ? {
+            id: product.thumbnailImg.id,
+            scope: product.thumbnailImg.scope.toString(),
+            uri: product.thumbnailImg.uri || '',
+            url: product.thumbnailImg.url || '',
+            fileName: product.thumbnailImg.fileName,
+            mimetype: product.thumbnailImg.mimetype,
+            size: product.thumbnailImg.size,
+            userId: product.thumbnailImg.userId || '',
+            createdAt: product.thumbnailImg.createdAt,
+            updatedAt: product.thumbnailImg.updatedAt
+          } : null,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt
+        }));
+      };
+
+      // Format categories function
+      const formatCategories = (categories: Category[]) => {
+        return categories.map((category: Category) => ({
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          description: category.description,
+          isActive: category.isActive,
+          isFeatured: category.isFeatured,
+          isPopular: category.isPopular,
+          thumbnailImageId: category.thumbnailImageId,
+          thumbnailImage: category.thumbnailImage ? {
+            id: category.thumbnailImage.id,
+            scope: category.thumbnailImage.scope.toString(),
+            uri: category.thumbnailImage.uri || '',
+            url: category.thumbnailImage.url || '',
+            fileName: category.thumbnailImage.fileName,
+            mimetype: category.thumbnailImage.mimetype,
+            size: category.thumbnailImage.size,
+            userId: category.thumbnailImage.userId || '',
+            createdAt: category.thumbnailImage.createdAt,
+            updatedAt: category.thumbnailImage.updatedAt
+          } : null,
+          createdAt: category.createdAt,
+          updatedAt: category.updatedAt
+        }));
+      };
+
+      return {
+        featured: formatProducts(featuredProducts),
+        new: formatProducts(newProducts),
+        variant: formatProducts(variantProducts),
+        categories: formatCategories(categories)
+      };
+    } catch (error: any) {
+      throw new Error(`Error fetching custom home data: ${error.message}`);
     }
   }
 } 

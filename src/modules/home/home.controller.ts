@@ -13,9 +13,9 @@ export class HomeController {
   async getHomeData(req: Request, res: Response): Promise<void> {
     try {
       const query = req.query as any;
-      const homeData = await this.homeService.getHomeData(query);
+      const customData = await this.homeService.getCustomHomeData(query);
 
-      res.json(getResponseAPI("0", homeData));
+      res.json(getResponseAPI("0", customData));
     } catch (error: any) {
       res.status(400).json(getResponseAPI("400", { errors: error.message }));
     }
@@ -49,6 +49,25 @@ export class HomeController {
       const products = await this.homeService.getDeals(query);
 
       res.json(getResponseAPI("0", products));
+    } catch (error: any) {
+      res.status(400).json(getResponseAPI("400", { errors: error.message }));
+    }
+  }
+
+  async getProducts(req: Request, res: Response): Promise<void> {
+    try {
+      const query = req.query as any;
+      const homeData = await this.homeService.getHomeData(query);
+      
+      // Return only the products data
+      const productsData = {
+        featuredProducts: homeData.featuredProducts,
+        newArrivals: homeData.newArrivals,
+        trendingProducts: homeData.trendingProducts,
+        deals: homeData.deals
+      };
+
+      res.json(getResponseAPI("0", productsData));
     } catch (error: any) {
       res.status(400).json(getResponseAPI("400", { errors: error.message }));
     }

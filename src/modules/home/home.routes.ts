@@ -45,4 +45,10 @@ router.get(
   homeController.getDeals.bind(homeController)
 );
 
+router.get(
+  '/products',
+  validateDto(GetHomeDataQueryDto),
+  homeController.getProducts.bind(homeController)
+);
+
 export default router; 

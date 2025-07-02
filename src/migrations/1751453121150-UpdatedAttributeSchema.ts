@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Updatedschema7220225121751443350403 implements MigrationInterface {
-    name = 'Updatedschema7220225121751443350403'
+export class UpdatedAttributeSchema1751453121150 implements MigrationInterface {
+    name = 'UpdatedAttributeSchema1751453121150'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "carts" DROP COLUMN "variants"`);
