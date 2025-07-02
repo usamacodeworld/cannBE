@@ -1,17 +1,16 @@
-import { Repository } from 'typeorm';
-import { Product } from './entities/product.entity';
-import { Category } from '../category/category.entity';
-import { Attribute } from '../attributes/entities/attribute.entity';
-import { AttributeValue } from '../attributes/entities/attribute-value.entity';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { ProductResponseDto } from './dto/product-response.dto';
-import { cuid } from '../../libs/cuid';
-import { GetProductsQueryDto } from './dto/get-products-query.dto';
-import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
-import slugify from 'slug';
-import { s3Service } from '../../libs/s3';
-import { MediaFile } from '../media/media-file.entity';
+import { Repository } from "typeorm";
+import { Product } from "./entities/product.entity";
+import { Category } from "../category/category.entity";
+import { Attribute } from "../attributes/entities/attribute.entity";
+import { AttributeValue } from "../attributes/entities/attribute-value.entity";
+import { CreateProductDto } from "./dto/create-product.dto";
+import { UpdateProductDto } from "./dto/update-product.dto";
+import { ProductResponseDto } from "./dto/product-response.dto";
+import { cuid } from "../../libs/cuid";
+import { GetProductsQueryDto } from "./dto/get-products-query.dto";
+import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
+import slugify from "slug";
+import { MediaFile } from "../media/media-file.entity";
 
 export class ProductService {
   private productRepository: Repository<Product>;
@@ -34,11 +33,15 @@ export class ProductService {
     this.mediaRepository = mediaRepository;
   }
 
-  private async toProductResponse(product: any, includeRelations: boolean = false): Promise<ProductResponseDto> {
+  private async toProductResponse(
+    product: any,
+    includeRelations: boolean = false
+  ): Promise<ProductResponseDto> {
     if (includeRelations) {
       return { ...product };
     } else {
-      const { categories, photos, variations, ...productWithoutRelations } = product;
+      const { categories, photos, variations, ...productWithoutRelations } =
+        product;
       return { ...productWithoutRelations };
     }
   }
@@ -46,13 +49,13 @@ export class ProductService {
   private async generateUniqueSlug(slug: string): Promise<string> {
     let uniqueSlug = slug;
     const existingProduct = await this.productRepository.query(
-      'SELECT id FROM products WHERE slug = $1',
+      "SELECT id FROM products WHERE slug = $1",
       [uniqueSlug]
     );
     while (existingProduct && existingProduct.length > 0) {
       uniqueSlug = `${slug}-${cuid().slice(-4)}`;
       const checkProduct = await this.productRepository.query(
-        'SELECT id FROM products WHERE slug = $1',
+        "SELECT id FROM products WHERE slug = $1",
         [uniqueSlug]
       );
       if (!checkProduct || checkProduct.length === 0) break;
@@ -60,338 +63,275 @@ export class ProductService {
     return uniqueSlug;
   }
 
-  private async handleImageUpload(
-    file: Express.Multer.File | undefined,
-    base64: string | undefined,
-    folder: string,
-    customFileName: string
-  ): Promise<string | undefined> {
-    if (file) {
-      const result = await s3Service.uploadFile(file, folder, customFileName);
-      return result.url;
-    }
-    if (base64) {
-      const result = await s3Service.uploadBase64Image(base64, folder, customFileName);
-      return result.url;
-    }
-    return undefined;
-  }
-
-  private async handleMultipleImageUploads(
-    files: Express.Multer.File[] | undefined,
-    base64s: string[] | undefined,
-    folder: string,
-    customFileNamePrefix: string
-  ): Promise<string[]> {
-    const urls: string[] = [];
-    if (files && files.length > 0) {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const url = await this.handleImageUpload(file, undefined, folder, `${customFileNamePrefix}-photo-${i}`);
-        if (url) urls.push(url);
-      }
-    }
-    if (base64s && base64s.length > 0) {
-      for (let i = 0; i < base64s.length; i++) {
-        const base64 = base64s[i];
-        const url = await this.handleImageUpload(undefined, base64, folder, `${customFileNamePrefix}-photo-b64-${i}`);
-        if (url) urls.push(url);
-      }
-    }
-    return urls;
-  }
-
   async createProduct(
     data: CreateProductDto,
     user: any,
-    slug: string,
-    thumbnailFile?: Express.Multer.File,
-    photosFiles?: Express.Multer.File[],
-    variantImageFiles?: Express.Multer.File[]
+    slug: string
   ): Promise<ProductResponseDto> {
     try {
+      // Generate unique slug
       const uniqueSlug = await this.generateUniqueSlug(slug);
-      const { variations, thumbnailBase64, photosBase64, categoryIds, ...productData } = data;
 
-      if (!productData.name) {
-        throw new Error('Product name is required');
-      }
-
-      const thumbnailUrl = await this.handleImageUpload(
-        thumbnailFile,
+      // Extract data for processing
+      const {
+        variations,
         thumbnailBase64,
-        'products',
-        `${uniqueSlug}-thumbnail`
-      );
-      if (thumbnailUrl) productData.thumbnailImgId = thumbnailUrl;
-
-      const photosUrls = await this.handleMultipleImageUploads(
-        Array.isArray(photosFiles) ? photosFiles : undefined,
         photosBase64,
-        'products',
-        uniqueSlug
-      );
-      if (photosUrls.length > 0) productData.photosIds = photosUrls;
+        categoryIds,
+        ...productData
+      } = data;
 
-      const insertQuery = `
-        INSERT INTO products (
-          "addedBy", "userId", name, slug, "photosIds", "thumbnailImgId", 
-          "categoryIds", tags, "shortDescription", "longDescription", 
-          "regularPrice", "salePrice", "isVariant", published, approved, 
-          stock, "cashOnDelivery", featured, discount, "discountType", 
-          "discountStartDate", "discountEndDate", tax, "taxType", 
-          "shippingType", "shippingCost", "estShippingDays", "numOfSales", 
-          "metaTitle", "metaDescription", rating, "externalLink", 
-          "externalLinkBtn", "createdAt", "updatedAt"
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 
-          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, 
-          $29, $30, $31, $32, $33, $34, $35
-        ) RETURNING *
-      `;
+      // Create product entity
+      const product = this.productRepository.create({
+        addedBy:
+          user.roles && user.roles.length > 0 ? user.roles[0].name : "user",
+        userId: user.id,
+        name: productData.name,
+        slug: uniqueSlug,
+        photosIds: productData.photosIds ?? [],
+        thumbnailImgId: productData.thumbnailImgId,
+        categoryIds: categoryIds || [],
+        tags: productData.tags || [],
+        shortDescription: productData.shortDescription,
+        longDescription: productData.longDescription,
+        regularPrice: productData.regularPrice,
+        salePrice: productData.salePrice,
+        isVariant: productData.isVariant || false,
+        published: productData.published || false,
+        approved: productData.approved || false,
+        stock: productData.stock,
+        cashOnDelivery: productData.cashOnDelivery || false,
+        featured: productData.featured || false,
+        discount: productData.discount,
+        discountType: productData.discountType,
+        discountStartDate: productData.discountStartDate,
+        discountEndDate: productData.discountEndDate,
+        tax: productData.tax,
+        taxType: productData.taxType,
+        shippingType: productData.shippingType,
+        shippingCost: productData.shippingCost,
+        estShippingDays: productData.estShippingDays,
+        numOfSales: productData.numOfSales,
+        metaTitle: productData.metaTitle,
+        metaDescription: productData.metaDescription,
+        rating: productData.rating,
+        externalLink: productData.externalLink,
+        externalLinkBtn: productData.externalLinkBtn,
+      });
 
-      const insertParams = [
-        user.roles && user.roles.length > 0 ? user.roles[0].name : 'user',
-        user.id,
-        productData.name,
-        uniqueSlug,
-        productData.photosIds || [],
-        productData.thumbnailImgId,
-        categoryIds || [],
-        productData.tags || [],
-        productData.shortDescription,
-        productData.longDescription,
-        productData.regularPrice,
-        productData.salePrice,
-        productData.isVariant || false,
-        productData.published || false,
-        productData.approved || false,
-        productData.stock,
-        productData.cashOnDelivery || false,
-        productData.featured || false,
-        productData.discount,
-        productData.discountType,
-        productData.discountStartDate,
-        productData.discountEndDate,
-        productData.tax,
-        productData.taxType,
-        productData.shippingType,
-        productData.shippingCost,
-        productData.estShippingDays,
-        productData.numOfSales,
-        productData.metaTitle,
-        productData.metaDescription,
-        productData.rating,
-        productData.externalLink,
-        productData.externalLinkBtn,
-        new Date(),
-        new Date()
-      ];
+      // Save the product
+      const savedProduct = await this.productRepository.save(product);
 
-      const savedProduct = await this.productRepository.query(insertQuery, insertParams);
-
-      if (!savedProduct || savedProduct.length === 0) {
-        throw new Error('Failed to create product');
-      }
-
-      const product = savedProduct[0];
-
+      // Validate categories if provided
       if (categoryIds && categoryIds.length > 0) {
-        try {
-          const categoryIdList = categoryIds.map((id: string) => `'${id}'`).join(',');
-          const categories = await this.categoryRepository.query(
-            `SELECT c.*, mf.* FROM categories c 
-             LEFT JOIN media_files mf ON c."thumbnailImageId" = mf.id 
-             WHERE c.id IN (${categoryIdList})`
-          );
-          
-          // Just validate that all category IDs exist
-          if (categories.length !== categoryIds.length) {
-            throw new Error('Some category IDs do not exist');
-          }
-          
-          console.log(`Validated ${categories.length} categories for product`);
-        } catch (error) {
-          console.log('Error validating categories:', error);
-          throw new Error('Invalid category IDs provided');
-        }
+        await this.validateCategories(categoryIds);
       }
 
+      // Handle variations if provided
       if (variations && Array.isArray(variations)) {
-        console.log('=== Processing Variations and Attributes ===');
-        console.log('Total variations:', variations.length);
-        
-        const attributeGroups = new Map<string, any[]>();
-        
-        for (const v of variations) {
-          if (!v.name) {
-            throw new Error('Variation name is required');
-          }
-          
-          if (!attributeGroups.has(v.name)) {
-            attributeGroups.set(v.name, []);
-          }
-          attributeGroups.get(v.name)!.push(v);
-        }
-        
-        for (const [attributeName, variations] of attributeGroups) {
-          console.log(`Processing attribute: ${attributeName} with ${variations.length} variations`);
-          
-          let attribute = await this.attributeRepository.query(
-            'SELECT * FROM attributes WHERE name = $1 AND "productId" = $2',
-            [attributeName, product.id]
-          );
-
-          if (!attribute || attribute.length === 0) {
-            const attributeInsertQuery = `
-              INSERT INTO attributes (name, "productId", "createdAt", "updatedAt")
-              VALUES ($1, $2, $3, $4)
-              RETURNING *
-            `;
-            attribute = await this.attributeRepository.query(attributeInsertQuery, [
-              attributeName,
-              product.id,
-              new Date(),
-              new Date()
-            ]);
-          }
-
-          const attributeId = attribute[0].id;
-
-          for (const v of variations) {
-            console.log(`Creating attribute value: ${v.variant} for ${attributeName}`);
-            
-            const valueInsertQuery = `
-              INSERT INTO attribute_values (
-                "attributeId", variant, sku, price, quantity, "imageId", 
-                "createdAt", "updatedAt"
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-              RETURNING *
-            `;
-            
-            await this.attributeValueRepository.query(valueInsertQuery, [
-              attributeId,
-              v.variant,
-              v.sku,
-              v.price,
-              v.quantity,
-              v.imageId,
-              new Date(),
-              new Date()
-            ]);
-          }
-        }
+        await this.createProductVariations(savedProduct.id, variations);
       }
 
-      const finalProduct = await this.findOne(product.id);
+      // Return the complete product with relations
+      const finalProduct = await this.findOne(savedProduct.id);
       return await this.toProductResponse(finalProduct);
     } catch (error) {
-      console.error('Error creating product:', error);
+      console.error("Error creating product:", error);
       throw error;
     }
   }
 
-  async findAll(query: GetProductsQueryDto): Promise<PaginatedResponseDto<any>> {
-    const { page = 1, limit = 10, sort = 'updatedAt', order = 'desc', filters = {} } = query;
+  private async validateCategories(categoryIds: string[]): Promise<void> {
+    try {
+      const categories = await this.categoryRepository.findByIds(categoryIds);
+      if (categories.length !== categoryIds.length) {
+        throw new Error("Some category IDs do not exist");
+      }
+      console.log(`Validated ${categories.length} categories for product`);
+    } catch (error) {
+      console.log("Error validating categories:", error);
+      throw new Error("Invalid category IDs provided");
+    }
+  }
+
+  private async createProductVariations(
+    productId: string,
+    variations: Array<{
+      name: string;
+      variant: string;
+      sku: string;
+      price: number;
+      quantity: number;
+      imageId?: string;
+    }>
+  ): Promise<void> {
+    console.log("=== Processing Variations and Attributes ===");
+    console.log("Total variations:", variations.length);
+
+    // Group variations by attribute name
+    const attributeGroups = new Map<string, typeof variations>();
+    for (const variation of variations) {
+      if (!variation.name) {
+        throw new Error("Variation name is required");
+      }
+
+      if (!attributeGroups.has(variation.name)) {
+        attributeGroups.set(variation.name, []);
+      }
+      attributeGroups.get(variation.name)!.push(variation);
+    }
+
+    // Create attributes and their values
+    for (const [attributeName, attributeVariations] of attributeGroups) {
+      console.log(
+        `Processing attribute: ${attributeName} with ${attributeVariations.length} variations`
+      );
+
+      // Create or find attribute
+      let attribute = await this.attributeRepository.findOne({
+        where: { name: attributeName, productId },
+      });
+
+      if (!attribute) {
+        attribute = this.attributeRepository.create({
+          name: attributeName,
+          productId,
+        });
+        await this.attributeRepository.save(attribute);
+      }
+
+      // Create attribute values
+      for (const variation of attributeVariations) {
+        console.log(
+          `Creating attribute value: ${variation.variant} for ${attributeName}`
+        );
+
+        const attributeValue = this.attributeValueRepository.create({
+          attribute: attribute,
+          variant: variation.variant,
+          sku: variation.sku,
+          price: variation.price,
+          quantity: variation.quantity,
+          imageId: variation.imageId,
+        });
+
+        await this.attributeValueRepository.save(attributeValue);
+      }
+    }
+  }
+
+  async findAll(
+    query: GetProductsQueryDto
+  ): Promise<PaginatedResponseDto<any>> {
+    const {
+      page = 1,
+      limit = 10,
+      sort = "updatedAt",
+      order = "desc",
+      filters = {},
+    } = query;
     const skip = (page - 1) * limit;
-    const { search, categoryId, categoryIds, isVariant, published, featured, minPrice, maxPrice } = filters;
+    const {
+      search,
+      categoryId,
+      categoryIds,
+      isVariant,
+      published,
+      featured,
+      minPrice,
+      maxPrice,
+    } = filters;
 
     try {
-      let baseQuery = 'SELECT * FROM products WHERE 1=1';
-      const params: any[] = [];
-      let paramIndex = 1;
+      // Build query builder
+      const queryBuilder = this.productRepository.createQueryBuilder("product");
 
+      // Add filters
       if (isVariant !== undefined) {
-        baseQuery += ` AND "isVariant" = $${paramIndex++}`;
-        params.push(isVariant);
+        queryBuilder.andWhere("product.isVariant = :isVariant", { isVariant });
       }
+
       if (published !== undefined) {
-        baseQuery += ` AND published = $${paramIndex++}`;
-        params.push(published);
+        queryBuilder.andWhere("product.published = :published", { published });
       }
+
       if (featured !== undefined) {
-        baseQuery += ` AND featured = $${paramIndex++}`;
-        params.push(featured);
+        queryBuilder.andWhere("product.featured = :featured", { featured });
       }
+
       if (minPrice !== undefined && maxPrice !== undefined) {
-        baseQuery += ` AND "salePrice" BETWEEN $${paramIndex++} AND $${paramIndex++}`;
-        params.push(minPrice, maxPrice);
-      }
-
-      if (search) {
-        baseQuery += ` AND (name ILIKE $${paramIndex++} OR slug ILIKE $${paramIndex++} OR "shortDescription" ILIKE $${paramIndex++} OR "longDescription" ILIKE $${paramIndex++})`;
-        const searchTerm = `%${search}%`;
-        params.push(searchTerm, searchTerm, searchTerm, searchTerm);
-        paramIndex += 4;
-      }
-
-      if (categoryIds && categoryIds.length > 0) {
-        const categoryIdList = categoryIds.map((id: string) => `'${id}'`).join(',');
-        baseQuery += ` AND "categoryIds" && ARRAY[${categoryIdList}]::text[]`;
-      } else if (categoryId) {
-        baseQuery += ` AND "categoryIds" && ARRAY['${categoryId}']::text[]`;
-      }
-
-      baseQuery += ` ORDER BY "${sort}" ${order.toUpperCase()}`;
-      baseQuery += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
-      params.push(limit, skip);
-
-      const products = await this.productRepository.query(baseQuery, params);
-
-      let countQuery = 'SELECT COUNT(*) as total FROM products WHERE 1=1';
-      const countParams: any[] = [];
-      let countParamIndex = 1;
-
-      if (isVariant !== undefined) {
-        countQuery += ` AND "isVariant" = $${countParamIndex++}`;
-        countParams.push(isVariant);
-      }
-      if (published !== undefined) {
-        countQuery += ` AND published = $${countParamIndex++}`;
-        countParams.push(published);
-      }
-      if (featured !== undefined) {
-        countQuery += ` AND featured = $${countParamIndex++}`;
-        countParams.push(featured);
-      }
-      if (minPrice !== undefined && maxPrice !== undefined) {
-        countQuery += ` AND "salePrice" BETWEEN $${countParamIndex++} AND $${countParamIndex++}`;
-        countParams.push(minPrice, maxPrice);
-      }
-
-      if (search) {
-        countQuery += ` AND (name ILIKE $${countParamIndex++} OR slug ILIKE $${countParamIndex++} OR "shortDescription" ILIKE $${countParamIndex++} OR "longDescription" ILIKE $${countParamIndex++})`;
-        const searchTerm = `%${search}%`;
-        countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
-      }
-
-      if (categoryIds && categoryIds.length > 0) {
-        const categoryIdList = categoryIds.map((id: string) => `'${id}'`).join(',');
-        countQuery += ` AND "categoryIds" && ARRAY[${categoryIdList}]::text[]`;
-      } else if (categoryId) {
-        countQuery += ` AND "categoryIds" && ARRAY['${categoryId}']::text[]`;
-      }
-
-      const countResult = await this.productRepository.query(countQuery, countParams);
-      const total = parseInt(countResult[0]?.total || '0');
-
-      const productDtos = await Promise.all(products.map(async (product: any) => {
-        let thumbnailImg = undefined;
-        if (product.thumbnailImgId) {
-          try {
-            const thumbnailQuery = 'SELECT * FROM media_files WHERE id = $1';
-            const thumbnailResult = await this.productRepository.query(thumbnailQuery, [product.thumbnailImgId]);
-            thumbnailImg = thumbnailResult[0] || undefined;
-          } catch (error) {
-            console.log('Error fetching thumbnail for product:', product.id, error);
+        queryBuilder.andWhere(
+          "product.salePrice BETWEEN :minPrice AND :maxPrice",
+          {
+            minPrice,
+            maxPrice,
           }
-        }
+        );
+      }
 
-        return {
-          ...product,
-          thumbnailImg,
-        };
-      }));
+      if (search) {
+        const searchTerm = `%${search}%`;
+        queryBuilder.andWhere(
+          "(product.name ILIKE :search OR product.slug ILIKE :search OR product.shortDescription ILIKE :search OR product.longDescription ILIKE :search)",
+          { search: searchTerm }
+        );
+      }
+
+      if (categoryIds && categoryIds.length > 0) {
+        queryBuilder.andWhere(
+          "product.categoryIds && ARRAY[:...categoryIds]::text[]",
+          {
+            categoryIds,
+          }
+        );
+      } else if (categoryId) {
+        queryBuilder.andWhere(
+          "product.categoryIds && ARRAY[:categoryId]::text[]",
+          {
+            categoryId,
+          }
+        );
+      }
+
+      // Add ordering
+      queryBuilder.orderBy(
+        `product.${sort}`,
+        order.toUpperCase() as "ASC" | "DESC"
+      );
+
+      // Get total count
+      const total = await queryBuilder.getCount();
+
+      // Add pagination
+      queryBuilder.skip(skip).take(limit);
+
+      // Execute query
+      const products = await queryBuilder.getMany();
+
+      // Enhance products with thumbnail images
+      const productDtos = await Promise.all(
+        products.map(async (product: any) => {
+          let thumbnailImg = undefined;
+          if (product.thumbnailImgId) {
+            try {
+              thumbnailImg = await this.mediaRepository.findOne({
+                where: { id: product.thumbnailImgId },
+              });
+            } catch (error) {
+              console.log(
+                "Error fetching thumbnail for product:",
+                product.id,
+                error
+              );
+            }
+          }
+
+          return {
+            ...product,
+            thumbnailImg,
+          };
+        })
+      );
 
       return {
         data: productDtos,
@@ -403,173 +343,85 @@ export class ProductService {
         },
       };
     } catch (error) {
-      console.error('Error in findAll:', error);
+      console.error("Error in findAll:", error);
       throw error;
     }
   }
 
   async findOne(id: string): Promise<ProductResponseDto> {
     try {
-      const products = await this.productRepository.query('SELECT * FROM products WHERE id = $1', [id]);
-      
-      if (!products || products.length === 0) {
-        throw new Error('Product not found');
-      }
-      
-      const product = products[0];
+      // Find the product
+      const product = await this.productRepository.findOne({
+        where: { id },
+      });
 
-      // Parse categoryIds from PostgreSQL array format
-      let categoryIdsArray: string[] = [];
-      if (product.categoryIds) {
-        try {
-          // Handle PostgreSQL array format: {"id1","id2"}
-          if (typeof product.categoryIds === 'string') {
-            // Remove curly braces and split by comma
-            const cleanString = product.categoryIds.replace(/[{}]/g, '');
-            categoryIdsArray = cleanString.split(',').map((id: string) => id.trim().replace(/"/g, ''));
-          } else if (Array.isArray(product.categoryIds)) {
-            categoryIdsArray = product.categoryIds;
-          }
-        } catch (error) {
-          console.log('Error parsing categoryIds:', error);
-        }
+      if (!product) {
+        throw new Error("Product not found");
       }
 
+      // Fetch categories if categoryIds exist
       let categories: Category[] = [];
-      if (categoryIdsArray.length > 0) {
+      if (product.categoryIds && product.categoryIds.length > 0) {
         try {
-          const categoryIdList = categoryIdsArray.map((id: string) => `'${id}'`).join(',');
-          const categoriesResult = await this.categoryRepository.query(
-            `SELECT c.*, mf.* FROM categories c 
-             LEFT JOIN media_files mf ON c."thumbnailImageId" = mf.id 
-             WHERE c.id IN (${categoryIdList})`
+          categories = await this.categoryRepository.findByIds(
+            product.categoryIds
           );
-          
-          categories = categoriesResult.map((row: any) => ({
-            id: row.id,
-            name: row.name,
-            slug: row.slug,
-            description: row.description,
-            isActive: row.isActive,
-            isFeatured: row.isFeatured,
-            isPopular: row.isPopular,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-            parentId: row.parentId,
-            isParent: row.isParent,
-            thumbnailImageId: row.thumbnailImageId,
-            coverImageId: row.coverImageId,
-            thumbnailImage: row.thumbnailImageId ? {
-              id: row.thumbnailImageId,
-              scope: row.scope,
-              uri: row.uri,
-              url: row.url,
-              fileName: row.fileName,
-              mimetype: row.mimetype,
-              size: row.size,
-              userId: row.userId,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-            } : null
-          }));
         } catch (error) {
-          console.log('Error fetching categories for product:', id, error);
+          console.log("Error fetching categories for product:", id, error);
         }
       }
 
+      // Fetch thumbnail image
       let thumbnailImg = undefined;
       if (product.thumbnailImgId) {
         try {
-          const thumbnailQuery = 'SELECT * FROM media_files WHERE id = $1';
-          const thumbnailResult = await this.productRepository.query(thumbnailQuery, [product.thumbnailImgId]);
-          thumbnailImg = thumbnailResult[0] || undefined;
+          thumbnailImg = await this.mediaRepository.findOne({
+            where: { id: product.thumbnailImgId },
+          });
         } catch (error) {
-          console.log('Error fetching thumbnail for product:', id, error);
+          console.log("Error fetching thumbnail for product:", id, error);
         }
       }
 
-      // Parse photosIds from PostgreSQL array format
-      let photoIdsArray: string[] = [];
-      if (product.photosIds) {
+      // Fetch photos
+      let photos: MediaFile[] = [];
+      if (product.photosIds && product.photosIds.length > 0) {
         try {
-          // Handle PostgreSQL array format: {"id1","id2"}
-          if (typeof product.photosIds === 'string') {
-            // Remove curly braces and split by comma
-            const cleanString = product.photosIds.replace(/[{}]/g, '');
-            photoIdsArray = cleanString.split(',').map((id: string) => id.trim().replace(/"/g, ''));
-          } else if (Array.isArray(product.photosIds)) {
-            photoIdsArray = product.photosIds;
-          }
+          photos = await this.mediaRepository.findByIds(product.photosIds);
         } catch (error) {
-          console.log('Error parsing photosIds:', error);
+          console.log("Error fetching photos for product:", id, error);
         }
       }
 
-      let photos = [];
-      if (photoIdsArray.length > 0) {
-        try {
-          const photoIdsString = photoIdsArray.map((photoId: string) => `'${photoId}'`).join(',');
-          const photosQuery = `SELECT * FROM media_files WHERE id IN (${photoIdsString})`;
-          photos = await this.productRepository.query(photosQuery);
-        } catch (error) {
-          console.log('Error fetching photos for product:', id, error);
-        }
-      }
-
+      // Fetch variations using TypeORM relations
       let variations: any[] = [];
       try {
-        const attributesQuery = `
-          SELECT a.id as "attributeId", a.name, av.id as "valueId", av.variant, av.sku, av.price, av.quantity, av."imageId"
-          FROM attributes a
-          LEFT JOIN attribute_values av ON a.id = av."attributeId"
-          WHERE a."productId" = $1
-          ORDER BY a.name, av.variant
-        `;
-        const attributesResult = await this.productRepository.query(attributesQuery, [id]);
-        
-        console.log('=== Debug: Attributes query result ===');
-        console.log('Total rows:', attributesResult.length);
-        attributesResult.forEach((row: any, index: number) => {
-          console.log(`Row ${index + 1}:`, {
-            attributeId: row.attributeId,
-            name: row.name,
-            valueId: row.valueId,
-            variant: row.variant,
-            sku: row.sku,
-            price: row.price,
-            quantity: row.quantity,
-            imageId: row.imageId
-          });
+        const attributes = await this.attributeRepository.find({
+          where: { productId: id },
+          relations: ["values", "values.image"],
         });
-        
-        const attributeGroups = new Map<string, any[]>();
-        for (const row of attributesResult) {
-          if (!attributeGroups.has(row.name)) {
-            attributeGroups.set(row.name, []);
-          }
-          if (row.variant) {
-            attributeGroups.get(row.name)!.push({
-              name: row.name,
-              variant: row.variant,
-              sku: row.sku,
-              price: row.price,
-              quantity: row.quantity,
-              imageId: row.imageId
+
+        for (const attribute of attributes) {
+          for (const value of attribute.values) {
+            variations.push({
+              name: attribute.name,
+              variant: value.variant,
+              sku: value.sku,
+              price: value.price,
+              quantity: value.quantity,
+              imageId: value.imageId,
+              image: value.image,
             });
           }
         }
-        
-        for (const [attributeName, variants] of attributeGroups) {
-          variations.push(...variants);
-        }
-        
-        console.log('=== Debug: Final variations array ===');
-        console.log('Total variations:', variations.length);
+
+        console.log("=== Debug: Final variations array ===");
+        console.log("Total variations:", variations.length);
         variations.forEach((variation: any, index: number) => {
           console.log(`Variation ${index + 1}:`, variation);
         });
       } catch (error) {
-        console.log('Error fetching variations for product:', id, error);
+        console.log("Error fetching variations for product:", id, error);
       }
 
       const productWithRelations = {
@@ -582,178 +434,127 @@ export class ProductService {
 
       return await this.toProductResponse(productWithRelations, true);
     } catch (error) {
-      console.error('Error in findOne:', error);
+      console.error("Error in findOne:", error);
       throw error;
     }
   }
 
   async updateProduct(
     id: string,
-    data: UpdateProductDto,
-    thumbnailFile?: Express.Multer.File,
-    photosFiles?: Express.Multer.File[],
-    variantImageFiles?: Express.Multer.File[]
+    data: UpdateProductDto
   ): Promise<ProductResponseDto> {
-    const existingProduct = await this.productRepository.query('SELECT * FROM products WHERE id = $1', [id]);
-    if (!existingProduct || existingProduct.length === 0) {
-      throw new Error('Product not found');
+    // Find existing product
+    const existingProduct = await this.productRepository.findOne({
+      where: { id },
+    });
+
+    if (!existingProduct) {
+      throw new Error("Product not found");
     }
-    
-    const product = existingProduct[0];
-    
+
+    // Handle slug generation
     if (data.name && !data.slug) {
       data.slug = slugify(data.name, { lower: true });
     }
     if (data.slug) {
       data.slug = await this.generateUniqueSlug(data.slug);
     }
-    
-    const { variations, thumbnailBase64, photosBase64, categoryIds, ...productData } = data;
 
-    const uniqueSlug = (data.slug || product.slug || `product-${id}`) as string;
-
-    const thumbnailUrl = await this.handleImageUpload(
-      thumbnailFile,
+    // Extract data for processing
+    const {
+      variations,
       thumbnailBase64,
-      'products',
-      `${uniqueSlug}-thumbnail`
-    );
-    if (thumbnailUrl) productData.thumbnailImgId = thumbnailUrl;
-
-    const photosUrls = await this.handleMultipleImageUploads(
-      Array.isArray(photosFiles) ? photosFiles : undefined,
       photosBase64,
-      'products',
-      uniqueSlug
-    );
-    if (photosUrls.length > 0) productData.photosIds = photosUrls;
+      categoryIds,
+      ...productData
+    } = data;
 
-    const updateFields: string[] = [];
-    const updateParams: any[] = [];
-    let paramIndex = 1;
-
-    Object.entries(productData).forEach(([key, value]) => {
-      if (value !== undefined) {
-        updateFields.push(`"${key}" = $${paramIndex++}`);
-        updateParams.push(value);
-      }
-    });
+    // Update product with new data
+    Object.assign(existingProduct, productData);
 
     if (categoryIds !== undefined) {
-      updateFields.push(`"categoryIds" = $${paramIndex++}`);
-      updateParams.push(categoryIds);
+      existingProduct.categoryIds = categoryIds;
     }
 
-    updateFields.push(`"updatedAt" = $${paramIndex++}`);
-    updateParams.push(new Date());
+    // Save the updated product
+    await this.productRepository.save(existingProduct);
 
-    if (updateFields.length > 0) {
-      const updateQuery = `UPDATE products SET ${updateFields.join(', ')} WHERE id = $${paramIndex++}`;
-      updateParams.push(id);
-      
-      await this.productRepository.query(updateQuery, updateParams);
-    }
-
+    // Handle variations if provided
     if (variations && Array.isArray(variations)) {
-      console.log('=== Processing Variations and Attributes for Update ===');
-      console.log('Total variations:', variations.length);
-      
-      // First, clear all existing variations for this product
-      console.log('Clearing existing variations...');
-      const existingAttributes = await this.attributeRepository.query(
-        'SELECT id FROM attributes WHERE "productId" = $1',
-        [id]
-      );
-      
-      if (existingAttributes.length > 0) {
-        const attributeIds = existingAttributes.map((attr: any) => attr.id);
-        const attributeIdsString = attributeIds.map((attrId: string) => `'${attrId}'`).join(',');
-        
-        // Delete attribute values first (due to foreign key constraint)
-        await this.attributeValueRepository.query(
-          `DELETE FROM attribute_values WHERE "attributeId" IN (${attributeIdsString})`
-        );
-        
-        // Then delete attributes
-        await this.attributeRepository.query(
-          `DELETE FROM attributes WHERE "productId" = $1`,
-          [id]
-        );
-        
-        console.log(`Cleared ${existingAttributes.length} existing attributes and their values`);
-      }
-      
-      const attributeGroups = new Map<string, any[]>();
-      
-      for (const v of variations) {
-        if (!v.name) {
-          throw new Error('Variation name is required');
-        }
-        
-        if (!attributeGroups.has(v.name)) {
-          attributeGroups.set(v.name, []);
-        }
-        attributeGroups.get(v.name)!.push(v);
-      }
-      
-      for (const [attributeName, variations] of attributeGroups) {
-        console.log(`Processing attribute: ${attributeName} with ${variations.length} variations`);
-        
-        // Create new attribute
-        const attributeInsertQuery = `
-          INSERT INTO attributes (name, "productId", "createdAt", "updatedAt")
-          VALUES ($1, $2, $3, $4)
-          RETURNING *
-        `;
-        const attribute = await this.attributeRepository.query(attributeInsertQuery, [
-          attributeName,
-          id,
-          new Date(),
-          new Date()
-        ]);
-
-        const attributeId = attribute[0].id;
-
-        for (const v of variations) {
-          console.log(`Creating attribute value: ${v.variant} for ${attributeName}`);
-          
-          const valueInsertQuery = `
-            INSERT INTO attribute_values (
-              "attributeId", variant, sku, price, quantity, "imageId", 
-              "createdAt", "updatedAt"
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING *
-          `;
-          
-          await this.attributeValueRepository.query(valueInsertQuery, [
-            attributeId,
-            v.variant,
-            v.sku,
-            v.price,
-            v.quantity,
-            v.imageId,
-            new Date(),
-            new Date()
-          ]);
-        }
-      }
+      await this.updateProductVariations(id, variations);
     }
 
     return await this.findOne(id);
   }
 
-  async removeProduct(id: string): Promise<void> {
-    const product = await this.productRepository.query('SELECT * FROM products WHERE id = $1', [id]);
-    if (!product || product.length === 0) throw new Error('Product not found');
-    
-    const attributes = await this.attributeRepository.query('SELECT * FROM attributes WHERE "productId" = $1', [id]);
-    if (attributes.length > 0) {
-      const attributeIds = attributes.map((attr: any) => attr.id);
-      const attributeIdsString = attributeIds.map((id: string) => `'${id}'`).join(',');
-      await this.attributeValueRepository.query(`DELETE FROM attribute_values WHERE "attributeId" IN (${attributeIdsString})`);
+  private async updateProductVariations(
+    productId: string,
+    variations: Array<{
+      name: string;
+      variant: string;
+      sku: string;
+      price: number;
+      quantity: number;
+      imageId?: string;
+    }>
+  ): Promise<void> {
+    console.log("=== Processing Variations and Attributes for Update ===");
+    console.log("Total variations:", variations.length);
+
+    // Clear existing variations
+    console.log("Clearing existing variations...");
+    const existingAttributes = await this.attributeRepository.find({
+      where: { productId },
+    });
+
+    if (existingAttributes.length > 0) {
+      // Delete attribute values first (due to foreign key constraint)
+      for (const attribute of existingAttributes) {
+        await this.attributeValueRepository.delete({
+          attribute: { id: attribute.id },
+        });
+      }
+
+      // Then delete attributes
+      await this.attributeRepository.delete({ productId });
+
+      console.log(
+        `Cleared ${existingAttributes.length} existing attributes and their values`
+      );
     }
-    
-    await this.attributeRepository.query('DELETE FROM attributes WHERE "productId" = $1', [id]);
-    await this.productRepository.query('DELETE FROM products WHERE id = $1', [id]);
+
+    // Create new variations
+    await this.createProductVariations(productId, variations);
+  }
+
+  async removeProduct(id: string): Promise<void> {
+    // Find the product
+    const product = await this.productRepository.findOne({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    // Find all attributes for this product
+    const attributes = await this.attributeRepository.find({
+      where: { productId: id },
+    });
+
+    // Delete attribute values first (due to foreign key constraint)
+    if (attributes.length > 0) {
+      for (const attribute of attributes) {
+        await this.attributeValueRepository.delete({
+          attribute: { id: attribute.id },
+        });
+      }
+    }
+
+    // Delete attributes
+    await this.attributeRepository.delete({ productId: id });
+
+    // Delete the product
+    await this.productRepository.delete({ id });
   }
 }
