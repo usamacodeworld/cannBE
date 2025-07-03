@@ -119,6 +119,17 @@ class ProductController extends BaseController {
       this.handleAsyncError(res, error, "Failed to delete product", 404);
     }
   };
+
+  getProductsByCategory = async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      const query = req.query as unknown as GetProductsQueryDto;
+      const products = await this.productService.findByCategoryId(categoryId, query);
+      this.createSuccessResponse(res, "Products retrieved successfully", products);
+    } catch (error: any) {
+      this.handleAsyncError(res, error, "Failed to retrieve products for category", 500);
+    }
+  };
 }
 
 export function productController(
@@ -142,6 +153,7 @@ export function productController(
     getProduct: controller.getProduct,
     updateProduct: controller.updateProduct,
     deleteProduct: controller.deleteProduct,
+    getProductsByCategory: controller.getProductsByCategory,
   };
 }
 

@@ -2,9 +2,10 @@ import { Request, Response } from "express";
 import { Repository } from "typeorm";
 import { Category } from "./category.entity";
 import { CategoryService } from "./category.service";
-import { v4 as uuidv4 } from "uuid";
+
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
 import slugify from "slug";
+import { cuid } from "../../libs/cuid";
 
 export function categoryController(categoryRepository: Repository<Category>) {
   const categoryService = new CategoryService(categoryRepository);
@@ -25,14 +26,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
         const category = await categoryService.create(categoryData, userId);
         res.status(201).json({
           message: "Category created successfully",
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: category,
           code: 0,
         });
       } catch (error: unknown) {
         res.status(400).json({
           message: (error as Error).message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
           code: 1,
         });
@@ -45,14 +46,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
         const categories = await categoryService.findAll(query);
         res.json({
           message: "Categories retrieved successfully",
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: categories,
           code: 0,
         });
       } catch (error: unknown) {
         res.status(500).json({
           message: (error as Error).message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
           code: 1,
         });
@@ -64,14 +65,33 @@ export function categoryController(categoryRepository: Repository<Category>) {
         const category = await categoryService.findOne(req.params.id);
         res.json({
           message: "Category retrieved successfully",
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: category,
           code: 0,
         });
       } catch (error: unknown) {
         res.status(404).json({
           message: (error as Error).message,
-          requestId: uuidv4(),
+          requestId: cuid(),
+          data: null,
+          code: 1,
+        });
+      }
+    },
+
+    getCategoryBySlug: async (req: Request, res: Response) => {
+      try {
+        const category = await categoryService.findBySlug(req.params.slug);
+        res.json({
+          message: "Category retrieved successfully",
+          requestId: cuid(),
+          data: category,
+          code: 0,
+        });
+      } catch (error: unknown) {
+        res.status(404).json({
+          message: (error as Error).message,
+          requestId: cuid(),
           data: null,
           code: 1,
         });
@@ -90,14 +110,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
         );
         res.json({
           message: "Category updated successfully",
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: category,
           code: 0,
         });
       } catch (error: unknown) {
         res.status(400).json({
           message: (error as Error).message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
           code: 1,
         });
@@ -109,14 +129,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
         await categoryService.remove(req.params.id);
         res.status(200).json({
           message: "Category deleted successfully",
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
           code: 0,
         });
       } catch (error: unknown) {
         res.status(404).json({
           message: (error as Error).message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
           code: 1,
         });
@@ -129,14 +149,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
         const categories = await categoryService.findParentCategories(query);
         res.json({
           message: "Parent categories retrieved successfully",
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: categories,
           code: 0,
         });
       } catch (error: unknown) {
         res.status(500).json({
           message: (error as Error).message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
           code: 1,
         });
@@ -152,14 +172,14 @@ export function categoryController(categoryRepository: Repository<Category>) {
         );
         res.json({
           message: "Sub categories retrieved successfully",
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: categories,
           code: 0,
         });
       } catch (error: unknown) {
         res.status(404).json({
           message: (error as Error).message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
           code: 1,
         });

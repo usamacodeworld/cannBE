@@ -1,4 +1,4 @@
-import { Repository } from "typeorm";
+import { Repository, Raw, In } from "typeorm";
 import { Product } from "./entities/product.entity";
 import { Category } from "../category/category.entity";
 import { Attribute } from "../attributes/entities/attribute.entity";
@@ -81,6 +81,17 @@ export class ProductService {
         ...productData
       } = data;
 
+      // Fetch categories by IDs
+      let categories: Category[] = [];
+      if (categoryIds && categoryIds.length > 0) {
+        categories = await this.categoryRepository.find({
+          where: { id: In(categoryIds) },
+        });
+        if (categories.length !== categoryIds.length) {
+          throw new Error("Some category IDs do not exist");
+        }
+      }
+
       // Create product entity
       const product = this.productRepository.create({
         addedBy:
@@ -90,7 +101,6 @@ export class ProductService {
         slug: uniqueSlug,
         photosIds: productData.photosIds ?? [],
         thumbnailImgId: productData.thumbnailImgId,
-        categoryIds: categoryIds || [],
         tags: productData.tags || [],
         shortDescription: productData.shortDescription,
         longDescription: productData.longDescription,
@@ -117,15 +127,11 @@ export class ProductService {
         rating: productData.rating,
         externalLink: productData.externalLink,
         externalLinkBtn: productData.externalLinkBtn,
+        categories,
       });
 
       // Save the product
       const savedProduct = await this.productRepository.save(product);
-
-      // Validate categories if provided
-      if (categoryIds && categoryIds.length > 0) {
-        await this.validateCategories(categoryIds);
-      }
 
       // Handle variations if provided
       if (variations && Array.isArray(variations)) {
@@ -143,7 +149,9 @@ export class ProductService {
 
   private async validateCategories(categoryIds: string[]): Promise<void> {
     try {
-      const categories = await this.categoryRepository.findByIds(categoryIds);
+      const categories = await this.categoryRepository.find({
+        where: { id: In(categoryIds) },
+      });
       if (categories.length !== categoryIds.length) {
         throw new Error("Some category IDs do not exist");
       }
@@ -361,11 +369,13 @@ export class ProductService {
 
       // Fetch categories if categoryIds exist
       let categories: Category[] = [];
-      if (product.categoryIds && product.categoryIds.length > 0) {
+      if (product.categories && product.categories.length > 0) {
         try {
-          categories = await this.categoryRepository.findByIds(
-            product.categoryIds
-          );
+          categories = await this.categoryRepository.find({
+            where: {
+              id: In(product.categories.map((category) => category.id)),
+            },
+          });
         } catch (error) {
           console.log("Error fetching categories for product:", id, error);
         }
@@ -387,7 +397,9 @@ export class ProductService {
       let photos: MediaFile[] = [];
       if (product.photosIds && product.photosIds.length > 0) {
         try {
-          photos = await this.mediaRepository.findByIds(product.photosIds);
+          photos = await this.mediaRepository.find({
+            where: { id: In(product.photosIds) },
+          });
         } catch (error) {
           console.log("Error fetching photos for product:", id, error);
         }
@@ -443,48 +455,30 @@ export class ProductService {
     id: string,
     data: UpdateProductDto
   ): Promise<ProductResponseDto> {
-    // Find existing product
-    const existingProduct = await this.productRepository.findOne({
+    const product = await this.productRepository.findOne({
       where: { id },
+      relations: ["categories"],
     });
-
-    if (!existingProduct) {
+    if (!product) {
       throw new Error("Product not found");
     }
 
-    // Handle slug generation
-    if (data.name && !data.slug) {
-      data.slug = slugify(data.name, { lower: true });
-    }
-    if (data.slug) {
-      data.slug = await this.generateUniqueSlug(data.slug);
-    }
-
-    // Extract data for processing
-    const {
-      variations,
-      thumbnailBase64,
-      photosBase64,
-      categoryIds,
-      ...productData
-    } = data;
-
-    // Update product with new data
-    Object.assign(existingProduct, productData);
-
-    if (categoryIds !== undefined) {
-      existingProduct.categoryIds = categoryIds;
+    // If categoryIds is present in data, update categories relation
+    if (data.categoryIds && Array.isArray(data.categoryIds)) {
+      const categories = await this.categoryRepository.find({
+        where: { id: In(data.categoryIds) },
+      });
+      if (categories.length !== data.categoryIds.length) {
+        throw new Error("Some category IDs do not exist");
+      }
+      product.categories = categories;
     }
 
-    // Save the updated product
-    await this.productRepository.save(existingProduct);
+    // Update other fields
+    Object.assign(product, data);
 
-    // Handle variations if provided
-    if (variations && Array.isArray(variations)) {
-      await this.updateProductVariations(id, variations);
-    }
-
-    return await this.findOne(id);
+    const updatedProduct = await this.productRepository.save(product);
+    return this.toProductResponse(updatedProduct);
   }
 
   private async updateProductVariations(
@@ -556,5 +550,69 @@ export class ProductService {
 
     // Delete the product
     await this.productRepository.delete({ id });
+  }
+
+  async findByCategoryId(
+    categoryId: string,
+    query: GetProductsQueryDto
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
+    const {
+      page = 1,
+      limit = 10,
+      sort = "updatedAt",
+      order = "desc",
+      filters = {},
+    } = query;
+    const skip = (page - 1) * limit;
+
+    // Build where condition for category relation
+    const where: any = {
+      categories: { id: categoryId },
+    };
+
+    // Optionally add more filters (search, published, etc.)
+    if (filters.search) {
+      where.name =
+        typeof filters.search === "string" ? filters.search : undefined;
+    }
+    if (filters.published !== undefined) {
+      where.published = filters.published;
+    }
+    if (filters.featured !== undefined) {
+      where.featured = filters.featured;
+    }
+    if (filters.isVariant !== undefined) {
+      where.isVariant = filters.isVariant;
+    }
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.regularPrice = {};
+      if (filters.minPrice !== undefined)
+        where.regularPrice["$gte"] = filters.minPrice;
+      if (filters.maxPrice !== undefined)
+        where.regularPrice["$lte"] = filters.maxPrice;
+    }
+
+    // Query products
+    const [products, total] = await this.productRepository.findAndCount({
+      where,
+      skip,
+      take: limit,
+      order: { [sort]: order },
+      relations: ["categories", "thumbnailImg"],
+    });
+
+    const productDtos = await Promise.all(
+      products.map((product) => this.toProductResponse(product))
+    );
+
+    return {
+      data: productDtos,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

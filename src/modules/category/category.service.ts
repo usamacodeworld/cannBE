@@ -173,6 +173,19 @@ export class CategoryService {
     return this.transformToResponseDto(category);
   }
 
+  async findBySlug(slug: string): Promise<CategoryResponseDto> {
+    const category = await this.categoryRepository.findOne({
+      where: { slug },
+      relations: ["parent", "thumbnailImage", "coverImage"],
+    });
+
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    return this.transformToResponseDto(category);
+  }
+
   async update(
     id: string,
     updateCategoryDto: UpdateCategoryDto,
