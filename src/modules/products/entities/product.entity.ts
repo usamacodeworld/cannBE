@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { Category } from '../../category/category.entity';
 import { MediaFile } from '../../media/media-file.entity';
@@ -27,8 +27,9 @@ export class Product extends BaseEntity {
   @JoinColumn({ name: 'thumbnailImgId' })
   thumbnailImg?: MediaFile;
 
-  @Column('simple-array', { nullable: true })
-  categoryIds: string[];
+  @ManyToMany(() => Category, { eager: true })
+  @JoinTable()
+  categories: Category[];
 
   @Column('simple-array', { nullable: true })
   tags: string[];

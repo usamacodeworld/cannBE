@@ -17,6 +17,7 @@ const {
   createCategory,
   getCategories,
   getCategory,
+  getCategoryBySlug,
   updateCategory,
   deleteCategory,
   getParentCategories,
@@ -60,6 +61,8 @@ router.get(
   RequirePermissions(PERMISSION_TYPE.READ_CATEGORY),
   getSubCategories
 );
+
+router.get("/slug/:slug", getCategoryBySlug);
 
 router.put(
   "/update/:id",

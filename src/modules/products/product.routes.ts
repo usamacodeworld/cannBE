@@ -35,6 +35,8 @@ router.post('/store',
 
 router.get('/all', ctrl.getProducts);
 
+router.get('/category/:categoryId', ctrl.getProductsByCategory);
+
 router.get('/:id', ctrl.getProduct);
 
 router.put('/update/:id', 
