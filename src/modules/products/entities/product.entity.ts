@@ -17,8 +17,9 @@ export class Product extends BaseEntity {
   @Column({ unique: true })
   slug: string;
 
-  @Column('simple-array', { nullable: true })
-  photosIds: string[];
+  @ManyToMany(() => MediaFile)
+  @JoinTable()
+  photos: MediaFile[];
 
   @Column({ nullable: true })
   thumbnailImgId: string;

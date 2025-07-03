@@ -130,6 +130,15 @@ class ProductController extends BaseController {
       this.handleAsyncError(res, error, "Failed to retrieve products for category", 500);
     }
   };
+
+  getProductBySlug = async (req: Request, res: Response) => {
+    try {
+      const product = await this.productService.findBySlug(req.params.slug);
+      this.createSuccessResponse(res, "Product retrieved successfully", product);
+    } catch (error: any) {
+      this.handleAsyncError(res, error, "Product not found", 404);
+    }
+  };
 }
 
 export function productController(
@@ -154,6 +163,7 @@ export function productController(
     updateProduct: controller.updateProduct,
     deleteProduct: controller.deleteProduct,
     getProductsByCategory: controller.getProductsByCategory,
+    getProductBySlug: controller.getProductBySlug,
   };
 }
 
