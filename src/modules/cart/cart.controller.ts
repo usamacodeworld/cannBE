@@ -1,12 +1,12 @@
-import { Request, Response } from 'express';
-import { Repository } from 'typeorm';
-import { Cart } from './entities/cart.entity';
-import { Product } from '../products/entities/product.entity';
-import { Attribute } from '../attributes/entities/attribute.entity';
-import { AttributeValue } from '../attributes/entities/attribute-value.entity';
-import { CartService } from './cart.service';
-import { v4 as uuidv4 } from 'uuid';
-import { GetCartQueryDto } from './dto/get-cart-query.dto';
+import { Request, Response } from "express";
+import { Repository } from "typeorm";
+import { Cart } from "./entities/cart.entity";
+import { Product } from "../products/entities/product.entity";
+import { Attribute } from "../attributes/entities/attribute.entity";
+import { AttributeValue } from "../attributes/entities/attribute-value.entity";
+import { CartService } from "./cart.service";
+import { GetCartQueryDto } from "./dto/get-cart-query.dto";
+import { cuid } from "../../libs/cuid";
 
 export function cartController(
   cartRepository: Repository<Cart>,
@@ -14,7 +14,12 @@ export function cartController(
   attributeRepository: Repository<Attribute>,
   attributeValueRepository: Repository<AttributeValue>
 ) {
-  const cartService = new CartService(cartRepository, productRepository, attributeRepository, attributeValueRepository);
+  const cartService = new CartService(
+    cartRepository,
+    productRepository,
+    attributeRepository,
+    attributeValueRepository
+  );
 
   return {
     addToCart: async (req: Request, res: Response) => {
@@ -23,25 +28,25 @@ export function cartController(
         const user = req.user;
 
         const cartItem = await cartService.addToCart(cartData, user);
-        
+
         // Return guestId in response if it was auto-generated
         const responseData = {
           ...cartItem,
-          guestId: cartItem.guestId || null
+          guestId: cartItem.guestId || null,
         };
-        
+
         res.status(201).json({
-          message: 'Item added to cart successfully',
-          requestId: uuidv4(),
+          message: "Item added to cart successfully",
+          requestId: cuid(),
           data: responseData,
-          code: 0
+          code: 0,
         });
       } catch (error: any) {
         res.status(400).json({
           message: error.message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -56,27 +61,27 @@ export function cartController(
           query.userId = user.id;
         } else if (!query.guestId) {
           res.status(400).json({
-            message: 'Guest ID is required for unauthenticated users',
-            requestId: uuidv4(),
+            message: "Guest ID is required for unauthenticated users",
+            requestId: cuid(),
             data: null,
-            code: 1
+            code: 1,
           });
           return;
         }
 
         const cart = await cartService.getCart(query);
         res.json({
-          message: 'Cart retrieved successfully',
-          requestId: uuidv4(),
+          message: "Cart retrieved successfully",
+          requestId: cuid(),
           data: cart,
-          code: 0
+          code: 0,
         });
       } catch (error: any) {
         res.status(500).json({
           message: error.message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -84,19 +89,22 @@ export function cartController(
     updateCartItem: async (req: Request, res: Response) => {
       try {
         const updateData = req.body;
-        const cartItem = await cartService.updateCartItem(req.params.id, updateData);
+        const cartItem = await cartService.updateCartItem(
+          req.params.id,
+          updateData
+        );
         res.json({
-          message: 'Cart item updated successfully',
-          requestId: uuidv4(),
+          message: "Cart item updated successfully",
+          requestId: cuid(),
           data: cartItem,
-          code: 0
+          code: 0,
         });
       } catch (error: any) {
         res.status(400).json({
           message: error.message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -105,17 +113,17 @@ export function cartController(
       try {
         await cartService.removeFromCart(req.params.id);
         res.json({
-          message: 'Item removed from cart successfully',
-          requestId: uuidv4(),
+          message: "Item removed from cart successfully",
+          requestId: cuid(),
           data: null,
-          code: 0
+          code: 0,
         });
       } catch (error: any) {
         res.status(400).json({
           message: error.message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -131,26 +139,26 @@ export function cartController(
           await cartService.clearCart(guestId as string);
         } else {
           res.status(400).json({
-            message: 'Guest ID is required for unauthenticated users',
-            requestId: uuidv4(),
+            message: "Guest ID is required for unauthenticated users",
+            requestId: cuid(),
             data: null,
-            code: 1
+            code: 1,
           });
           return;
         }
 
         res.json({
-          message: 'Cart cleared successfully',
-          requestId: uuidv4(),
+          message: "Cart cleared successfully",
+          requestId: cuid(),
           data: null,
-          code: 0
+          code: 0,
         });
       } catch (error: any) {
         res.status(400).json({
           message: error.message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
     },
@@ -167,28 +175,28 @@ export function cartController(
           summary = await cartService.getCartSummary(guestId as string);
         } else {
           res.status(400).json({
-            message: 'Guest ID is required for unauthenticated users',
-            requestId: uuidv4(),
+            message: "Guest ID is required for unauthenticated users",
+            requestId: cuid(),
             data: null,
-            code: 1
+            code: 1,
           });
           return;
         }
 
         res.json({
-          message: 'Cart summary retrieved successfully',
-          requestId: uuidv4(),
+          message: "Cart summary retrieved successfully",
+          requestId: cuid(),
           data: summary,
-          code: 0
+          code: 0,
         });
       } catch (error: any) {
         res.status(500).json({
           message: error.message,
-          requestId: uuidv4(),
+          requestId: cuid(),
           data: null,
-          code: 1
+          code: 1,
         });
       }
-    }
+    },
   };
-} 
+}

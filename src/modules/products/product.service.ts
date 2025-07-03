@@ -37,13 +37,7 @@ export class ProductService {
     product: any,
     includeRelations: boolean = false
   ): Promise<ProductResponseDto> {
-    if (includeRelations) {
-      return { ...product };
-    } else {
-      const { categories, photos, variations, ...productWithoutRelations } =
-        product;
-      return { ...productWithoutRelations };
-    }
+    return { ...product };
   }
 
   private async generateUniqueSlug(slug: string): Promise<string> {
@@ -77,6 +71,7 @@ export class ProductService {
         variations,
         thumbnailBase64,
         photosBase64,
+        photosIds,
         categoryIds,
         ...productData
       } = data;
@@ -92,6 +87,15 @@ export class ProductService {
         }
       }
 
+      // Fetch photos by IDs
+      let photos: MediaFile[] = [];
+      if (photosIds && photosIds.length > 0) {
+        photos = await this.mediaRepository.find({ where: { id: In(photosIds) } });
+        if (photos.length !== photosIds.length) {
+          throw new Error("Some photo IDs do not exist");
+        }
+      }
+
       // Create product entity
       const product = this.productRepository.create({
         addedBy:
@@ -99,7 +103,6 @@ export class ProductService {
         userId: user.id,
         name: productData.name,
         slug: uniqueSlug,
-        photosIds: productData.photosIds ?? [],
         thumbnailImgId: productData.thumbnailImgId,
         tags: productData.tags || [],
         shortDescription: productData.shortDescription,
@@ -128,6 +131,7 @@ export class ProductService {
         externalLink: productData.externalLink,
         externalLinkBtn: productData.externalLinkBtn,
         categories,
+        photos,
       });
 
       // Save the product
@@ -214,6 +218,11 @@ export class ProductService {
           `Creating attribute value: ${variation.variant} for ${attributeName}`
         );
 
+        let image = undefined;
+        if (variation.imageId) {
+          image = await this.mediaRepository.findOne({ where: { id: variation.imageId } });
+        }
+
         const attributeValue = this.attributeValueRepository.create({
           attribute: attribute,
           variant: variation.variant,
@@ -221,6 +230,7 @@ export class ProductService {
           price: variation.price,
           quantity: variation.quantity,
           imageId: variation.imageId,
+          image: image || undefined,
         });
 
         await this.attributeValueRepository.save(attributeValue);
@@ -357,127 +367,78 @@ export class ProductService {
   }
 
   async findOne(id: string): Promise<ProductResponseDto> {
-    try {
-      // Find the product
-      const product = await this.productRepository.findOne({
-        where: { id },
-      });
-
-      if (!product) {
-        throw new Error("Product not found");
-      }
-
-      // Fetch categories if categoryIds exist
-      let categories: Category[] = [];
-      if (product.categories && product.categories.length > 0) {
-        try {
-          categories = await this.categoryRepository.find({
-            where: {
-              id: In(product.categories.map((category) => category.id)),
-            },
-          });
-        } catch (error) {
-          console.log("Error fetching categories for product:", id, error);
-        }
-      }
-
-      // Fetch thumbnail image
-      let thumbnailImg = undefined;
-      if (product.thumbnailImgId) {
-        try {
-          thumbnailImg = await this.mediaRepository.findOne({
-            where: { id: product.thumbnailImgId },
-          });
-        } catch (error) {
-          console.log("Error fetching thumbnail for product:", id, error);
-        }
-      }
-
-      // Fetch photos
-      let photos: MediaFile[] = [];
-      if (product.photosIds && product.photosIds.length > 0) {
-        try {
-          photos = await this.mediaRepository.find({
-            where: { id: In(product.photosIds) },
-          });
-        } catch (error) {
-          console.log("Error fetching photos for product:", id, error);
-        }
-      }
-
-      // Fetch variations using TypeORM relations
-      let variations: any[] = [];
-      try {
-        const attributes = await this.attributeRepository.find({
-          where: { productId: id },
-          relations: ["values", "values.image"],
-        });
-
-        for (const attribute of attributes) {
-          for (const value of attribute.values) {
-            variations.push({
-              name: attribute.name,
-              variant: value.variant,
-              sku: value.sku,
-              price: value.price,
-              quantity: value.quantity,
-              imageId: value.imageId,
-              image: value.image,
-            });
-          }
-        }
-
-        console.log("=== Debug: Final variations array ===");
-        console.log("Total variations:", variations.length);
-        variations.forEach((variation: any, index: number) => {
-          console.log(`Variation ${index + 1}:`, variation);
-        });
-      } catch (error) {
-        console.log("Error fetching variations for product:", id, error);
-      }
-
-      const productWithRelations = {
-        ...product,
-        categories,
-        thumbnailImg,
-        photos,
-        variations,
-      };
-
-      return await this.toProductResponse(productWithRelations, true);
-    } catch (error) {
-      console.error("Error in findOne:", error);
-      throw error;
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: ["categories", "thumbnailImg", "photos"],
+    });
+    if (!product) {
+      throw new Error("Product not found");
     }
+
+    // Fetch variations using TypeORM relations
+    let variations: any[] = [];
+    const attributes = await this.attributeRepository.find({
+      where: { productId: id },
+      relations: ["values", "values.image"],
+    });
+
+    for (const attribute of attributes) {
+      for (const value of attribute.values) {
+        variations.push({
+          name: attribute.name,
+          variant: value.variant,
+          sku: value.sku,
+          price: value.price,
+          quantity: value.quantity,
+          imageId: value.imageId,
+          image: value.image,
+        });
+      }
+    }
+
+    // Attach variations to the product object
+    const productWithVariations = { ...product, variations };
+
+    return this.toProductResponse(productWithVariations);
   }
 
   async updateProduct(
     id: string,
     data: UpdateProductDto
   ): Promise<ProductResponseDto> {
-    const product = await this.productRepository.findOne({
-      where: { id },
-      relations: ["categories"],
-    });
+    const product = await this.productRepository.findOne({ where: { id }, relations: ["categories", "photos"] });
     if (!product) {
       throw new Error("Product not found");
     }
 
     // If categoryIds is present in data, update categories relation
     if (data.categoryIds && Array.isArray(data.categoryIds)) {
-      const categories = await this.categoryRepository.find({
-        where: { id: In(data.categoryIds) },
-      });
+      const categories = await this.categoryRepository.find({ where: { id: In(data.categoryIds) } });
       if (categories.length !== data.categoryIds.length) {
         throw new Error("Some category IDs do not exist");
       }
       product.categories = categories;
     }
 
+    // If photosIds is present in data, update photos relation
+    if (data.photosIds && Array.isArray(data.photosIds)) {
+      const photos = await this.mediaRepository.find({ where: { id: In(data.photosIds) } });
+      if (photos.length !== data.photosIds.length) {
+        throw new Error("Some photo IDs do not exist");
+      }
+      product.photos = photos;
+    }
+
     // Update other fields
     Object.assign(product, data);
 
     const updatedProduct = await this.productRepository.save(product);
+
+    // If variations are present, update them
+    if (data.variations && Array.isArray(data.variations)) {
+      await this.updateProductVariations(id, data.variations);
+    }
+
     return this.toProductResponse(updatedProduct);
   }
 
@@ -598,7 +559,7 @@ export class ProductService {
       skip,
       take: limit,
       order: { [sort]: order },
-      relations: ["categories", "thumbnailImg"],
+      relations: ["categories", "thumbnailImg", "photos"],
     });
 
     const productDtos = await Promise.all(
@@ -614,5 +575,41 @@ export class ProductService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async findBySlug(slug: string): Promise<ProductResponseDto> {
+    const product = await this.productRepository.findOne({
+      where: { slug },
+      relations: ["categories", "thumbnailImg", "photos"],
+    });
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    // Fetch variations using TypeORM relations
+    let variations: any[] = [];
+    const attributes = await this.attributeRepository.find({
+      where: { productId: product.id },
+      relations: ["values", "values.image"],
+    });
+
+    for (const attribute of attributes) {
+      for (const value of attribute.values) {
+        variations.push({
+          name: attribute.name,
+          variant: value.variant,
+          sku: value.sku,
+          price: value.price,
+          quantity: value.quantity,
+          imageId: value.imageId,
+          image: value.image,
+        });
+      }
+    }
+
+    // Attach variations to the product object
+    const productWithVariations = { ...product, variations };
+
+    return this.toProductResponse(productWithVariations);
   }
 }
