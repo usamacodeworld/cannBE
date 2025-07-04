@@ -1,5 +1,14 @@
-import { IsString, IsOptional, IsNumber, IsUUID, Min, IsArray, ValidateNested, IsObject } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsUUID,
+  Min,
+  IsArray,
+  ValidateNested,
+  IsObject,
+} from "class-validator";
+import { Type, Transform } from "class-transformer";
 
 export class CartVariantDto {
   @IsUUID()
@@ -30,11 +39,15 @@ export class AddToCartDto {
   guestId?: string; // Optional - will be auto-generated if not provided and user not logged in
 
   @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CartVariantDto)
   @Transform(({ value }) => {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       try {
         return JSON.parse(value);
       } catch {
@@ -49,4 +62,4 @@ export class AddToCartDto {
   @IsNumber()
   @Type(() => Number)
   price?: number;
-} 
+}

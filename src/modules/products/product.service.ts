@@ -90,7 +90,9 @@ export class ProductService {
       // Fetch photos by IDs
       let photos: MediaFile[] = [];
       if (photosIds && photosIds.length > 0) {
-        photos = await this.mediaRepository.find({ where: { id: In(photosIds) } });
+        photos = await this.mediaRepository.find({
+          where: { id: In(photosIds) },
+        });
         if (photos.length !== photosIds.length) {
           throw new Error("Some photo IDs do not exist");
         }
@@ -220,7 +222,9 @@ export class ProductService {
 
         let image = undefined;
         if (variation.imageId) {
-          image = await this.mediaRepository.findOne({ where: { id: variation.imageId } });
+          image = await this.mediaRepository.findOne({
+            where: { id: variation.imageId },
+          });
         }
 
         const attributeValue = this.attributeValueRepository.create({
@@ -385,6 +389,7 @@ export class ProductService {
     for (const attribute of attributes) {
       for (const value of attribute.values) {
         variations.push({
+          id: attribute.id,
           name: attribute.name,
           variant: value.variant,
           sku: value.sku,
@@ -406,14 +411,19 @@ export class ProductService {
     id: string,
     data: UpdateProductDto
   ): Promise<ProductResponseDto> {
-    const product = await this.productRepository.findOne({ where: { id }, relations: ["categories", "photos"] });
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: ["categories", "photos"],
+    });
     if (!product) {
       throw new Error("Product not found");
     }
 
     // If categoryIds is present in data, update categories relation
     if (data.categoryIds && Array.isArray(data.categoryIds)) {
-      const categories = await this.categoryRepository.find({ where: { id: In(data.categoryIds) } });
+      const categories = await this.categoryRepository.find({
+        where: { id: In(data.categoryIds) },
+      });
       if (categories.length !== data.categoryIds.length) {
         throw new Error("Some category IDs do not exist");
       }
@@ -422,7 +432,9 @@ export class ProductService {
 
     // If photosIds is present in data, update photos relation
     if (data.photosIds && Array.isArray(data.photosIds)) {
-      const photos = await this.mediaRepository.find({ where: { id: In(data.photosIds) } });
+      const photos = await this.mediaRepository.find({
+        where: { id: In(data.photosIds) },
+      });
       if (photos.length !== data.photosIds.length) {
         throw new Error("Some photo IDs do not exist");
       }
@@ -596,8 +608,10 @@ export class ProductService {
     for (const attribute of attributes) {
       for (const value of attribute.values) {
         variations.push({
-          name: attribute.name,
-          variant: value.variant,
+          attributeId: attribute.id,
+          attributeValueId: value.id,
+          attributeName: attribute.name,
+          attributeValue: value.variant,
           sku: value.sku,
           price: value.price,
           quantity: value.quantity,
