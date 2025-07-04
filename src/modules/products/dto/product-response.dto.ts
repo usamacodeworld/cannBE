@@ -7,6 +7,18 @@ export class CategoryInfoDto {
   description?: string;
 }
 
+export class ProductVariationDto {
+  attributeId: string;
+  attributeValueId: string;
+  attributeName: string;
+  attributeValue: string;
+  sku?: string;
+  price?: number;
+  quantity?: number;
+  imageId?: string;
+  image?: MediaFileResponseDto;
+}
+
 export class ProductResponseDto {
   id: string;
   addedBy: string;
@@ -46,4 +58,5 @@ export class ProductResponseDto {
   categories: CategoryInfoDto[];
   createdAt: Date;
   updatedAt: Date;
+  variations?: ProductVariationDto[];
 } 

@@ -247,7 +247,7 @@ export class CartService {
 
   async getCart(
     query: GetCartQueryDto
-  ): Promise<PaginatedResponseDto<CartResponseDto>> {
+  ): Promise<CartResponseDto[]> {
     try {
       const { guestId, userId } = query;
 
@@ -267,6 +267,14 @@ export class CartService {
 
       const formattedCartItems = cartItems.map((item: any) => ({
         ...item,
+        variants: item.variants
+          ? item.variants.map((variant: any) => ({
+              attributeId: variant.attributeId,
+              attributeValueId: variant.attributeValueId,
+              attributeName: variant.attributeName,
+              attributeValue: variant.attributeValue,
+            }))
+          : undefined,
         product: item.product
           ? {
               id: item.product.id,
@@ -286,15 +294,7 @@ export class CartService {
           : null,
       }));
 
-      return {
-        data: formattedCartItems,
-        meta: {
-          total: formattedCartItems.length,
-          page: 1,
-          limit: formattedCartItems.length,
-          totalPages: 1,
-        },
-      };
+      return formattedCartItems;
     } catch (error: any) {
       throw new Error(error.message);
     }
@@ -302,7 +302,8 @@ export class CartService {
 
   async updateCartItem(
     id: string,
-    data: UpdateCartDto
+    data: UpdateCartDto,
+    user?: any
   ): Promise<CartResponseDto> {
     try {
       const cartItem = await this.cartRepository.findOne({ where: { id } });
@@ -368,8 +369,26 @@ export class CartService {
         throw new Error("Cart item not found");
       }
 
-      cartItem.isActive = false;
-      await this.cartRepository.save(cartItem);
+      // Check if this is the last active cart item for this user/guest
+      const whereCondition: any = { isActive: true };
+      if (cartItem.userId) {
+        whereCondition.userId = cartItem.userId;
+      } else if (cartItem.guestId) {
+        whereCondition.guestId = cartItem.guestId;
+      }
+
+      const activeCartItems = await this.cartRepository.find({
+        where: whereCondition,
+      });
+
+      // If this is the last item, delete it from database
+      if (activeCartItems.length === 1 && activeCartItems[0].id === id) {
+        await this.cartRepository.remove(cartItem);
+      } else {
+        // Otherwise, just mark it as inactive
+        cartItem.isActive = false;
+        await this.cartRepository.save(cartItem);
+      }
     } catch (error: any) {
       throw new Error(error.message);
     }

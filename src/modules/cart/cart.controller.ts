@@ -7,6 +7,7 @@ import { AttributeValue } from "../attributes/entities/attribute-value.entity";
 import { CartService } from "./cart.service";
 import { GetCartQueryDto } from "./dto/get-cart-query.dto";
 import { cuid } from "../../libs/cuid";
+import { getUserProfile } from "../user/user.service";
 
 export function cartController(
   cartRepository: Repository<Cart>,
@@ -25,9 +26,41 @@ export function cartController(
     addToCart: async (req: Request, res: Response) => {
       try {
         const cartData = req.body;
-        const user = req.user;
+        let user = req.user;
 
-        const cartItem = await cartService.addToCart(cartData, user);
+        // If userId is provided in body, find the user and use it
+        if (cartData.userId) {
+          try {
+            const foundUser = await getUserProfile(cartData.userId);
+            user = {
+              id: foundUser.id,
+              roles: foundUser.roles,
+              type: foundUser.type,
+              firstName: foundUser.firstName,
+              lastName: foundUser.lastName,
+              userName: foundUser.email, // fallback, as userName is not in UserResponseDto
+              email: foundUser.email,
+              password: '', // not available
+              phone: foundUser.phone,
+              emailVerified: foundUser.emailVerified,
+              isActive: true,
+              createdAt: foundUser.createdAt,
+              updatedAt: foundUser.updatedAt,
+              hashPassword: async () => {},
+              comparePassword: async () => true,
+            } as any;
+          } catch (err) {
+            res.status(400).json({
+              message: "User not found for provided userId",
+              requestId: cuid(),
+              data: null,
+              code: 1,
+            });
+            return;
+          }
+        }
+
+        const cartItem = await cartService.addToCart(cartData, user as any);
 
         // Return guestId in response if it was auto-generated
         const responseData = {
@@ -54,7 +87,40 @@ export function cartController(
     getCart: async (req: Request, res: Response) => {
       try {
         const query = req.query as unknown as GetCartQueryDto;
-        const user = req.user;
+        let user = req.user;
+
+        // If userId is provided in query, find the user and use it
+        if (query.userId) {
+          try {
+            const foundUser = await getUserProfile(query.userId);
+            user = {
+              id: foundUser.id,
+              roles: foundUser.roles,
+              type: foundUser.type,
+              firstName: foundUser.firstName,
+              lastName: foundUser.lastName,
+              userName: foundUser.email, // fallback, as userName is not in UserResponseDto
+              email: foundUser.email,
+              password: '', // not available
+              phone: foundUser.phone,
+              emailVerified: foundUser.emailVerified,
+              isActive: true,
+              createdAt: foundUser.createdAt,
+              updatedAt: foundUser.updatedAt,
+              hashPassword: async () => {},
+              comparePassword: async () => true,
+            } as any;
+            query.userId = foundUser.id;
+          } catch (err) {
+            res.status(400).json({
+              message: "User not found for provided userId",
+              requestId: cuid(),
+              data: null,
+              code: 1,
+            });
+            return;
+          }
+        }
 
         // If user is authenticated, use userId, otherwise use guestId from query
         if (user?.id) {
@@ -89,9 +155,44 @@ export function cartController(
     updateCartItem: async (req: Request, res: Response) => {
       try {
         const updateData = req.body;
+        let user = req.user;
+
+        // If userId is provided in body, find the user and use it
+        if (updateData.userId) {
+          try {
+            const foundUser = await getUserProfile(updateData.userId);
+            user = {
+              id: foundUser.id,
+              roles: foundUser.roles,
+              type: foundUser.type,
+              firstName: foundUser.firstName,
+              lastName: foundUser.lastName,
+              userName: foundUser.email, // fallback, as userName is not in UserResponseDto
+              email: foundUser.email,
+              password: '', // not available
+              phone: foundUser.phone,
+              emailVerified: foundUser.emailVerified,
+              isActive: true,
+              createdAt: foundUser.createdAt,
+              updatedAt: foundUser.updatedAt,
+              hashPassword: async () => {},
+              comparePassword: async () => true,
+            } as any;
+          } catch (err) {
+            res.status(400).json({
+              message: "User not found for provided userId",
+              requestId: cuid(),
+              data: null,
+              code: 1,
+            });
+            return;
+          }
+        }
+
         const cartItem = await cartService.updateCartItem(
           req.params.id,
-          updateData
+          updateData,
+          user as any
         );
         res.json({
           message: "Cart item updated successfully",
