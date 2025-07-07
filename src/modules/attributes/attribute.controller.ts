@@ -5,7 +5,7 @@ import { AttributeValue } from "./entities/attribute-value.entity";
 import { AttributeService } from "./attribute.service";
 
 import { GetAttributesQueryDto } from "./dto/get-attributes-query.dto";
-import { cuid } from "@/libs/cuid";
+import { cuid } from "../../libs/cuid";
 
 export function attributeController(
   attributeRepository: Repository<Attribute>,
