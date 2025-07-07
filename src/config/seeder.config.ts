@@ -9,6 +9,11 @@ import { Attribute } from "../modules/attributes/entities/attribute.entity";
 import { AttributeValue } from "../modules/attributes/entities/attribute-value.entity";
 import { MediaFile } from "../modules/media/media-file.entity";
 import { Cart } from "../modules/cart/entities/cart.entity";
+import { Order } from "../modules/checkout/entities/order.entity";
+import { OrderItem } from "../modules/checkout/entities/order-item.entity";
+import { OrderStatusHistory } from "../modules/checkout/entities/order-status-history.entity";
+import { ShippingAddress } from "../modules/checkout/entities/shipping-address.entity";
+import { Coupon } from "../modules/checkout/entities/coupon.entity";
 
 export const AppSeederDataSource = new DataSource({
   type: "postgres",
@@ -30,6 +35,11 @@ export const AppSeederDataSource = new DataSource({
     AttributeValue,
     MediaFile,
     Cart,
+    Order,
+    OrderItem,
+    OrderStatusHistory,
+    ShippingAddress,
+    Coupon,
   ],
   migrations: ["src/migrations/*.ts"],
   subscribers: [],
