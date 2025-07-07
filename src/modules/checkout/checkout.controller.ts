@@ -8,7 +8,9 @@ import { Coupon } from './entities/coupon.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { Product } from '../products/entities/product.entity';
 import { User } from '../user/user.entity';
+import { Address } from '../address/address.entity';
 import { CheckoutService } from './checkout.service';
+import { AppDataSource } from '../../config/database';
 
 export function checkoutController(
   orderRepository: Repository<Order>,
@@ -18,7 +20,8 @@ export function checkoutController(
   couponRepository: Repository<Coupon>,
   cartRepository: Repository<Cart>,
   productRepository: Repository<Product>,
-  userRepository: Repository<User>
+  userRepository: Repository<User>,
+  addressRepository: Repository<Address>
 ) {
   const checkoutService = new CheckoutService(
     orderRepository,
@@ -28,13 +31,22 @@ export function checkoutController(
     couponRepository,
     cartRepository,
     productRepository,
-    userRepository
+    userRepository,
+    addressRepository,
+    AppDataSource
   );
 
   return {
     initiateCheckout: async (req: Request, res: Response) => {
       try {
-        const result = await checkoutService.initiateCheckout(req.body);
+        const user = (req as any).user;
+        const checkoutData = {
+          ...req.body,
+          userId: user?.id,
+          checkoutType: user ? 'registered' : 'guest'
+        };
+        
+        const result = await checkoutService.initiateCheckout(checkoutData);
         res.status(200).json({
           success: true,
           data: result
@@ -52,7 +64,13 @@ export function checkoutController(
 
     confirmOrder: async (req: Request, res: Response) => {
       try {
-        const result = await checkoutService.confirmOrder(req.body);
+        const user = (req as any).user;
+        const orderData = {
+          ...req.body,
+          userId: user?.id
+        };
+        
+        const result = await checkoutService.confirmOrder(orderData);
         res.status(201).json({
           success: true,
           data: result
@@ -121,25 +139,8 @@ export function checkoutController(
 
     calculateShipping: async (req: Request, res: Response) => {
       try {
-        // Mock shipping calculation
-        const shippingMethods = [
-          {
-            id: 'standard',
-            name: 'Standard Shipping',
-            description: '5-7 business days',
-            price: 9.99,
-            estimatedDays: 7,
-            carrier: 'USPS'
-          },
-          {
-            id: 'express',
-            name: 'Express Shipping',
-            description: '2-3 business days',
-            price: 19.99,
-            estimatedDays: 3,
-            carrier: 'FedEx'
-          }
-        ];
+        const { checkoutId, shippingAddress } = req.body;
+        const shippingMethods = await checkoutService.calculateShipping(checkoutId, shippingAddress);
 
         res.status(200).json({
           success: true,
@@ -161,22 +162,14 @@ export function checkoutController(
 
     calculateTax: async (req: Request, res: Response) => {
       try {
-        const { items, shippingAddress } = req.body;
-        
-        // Mock tax calculation
-        let taxableAmount = 0;
-        for (const item of items || []) {
-          taxableAmount += (item.unitPrice || 0) * (item.quantity || 0);
-        }
-
-        const taxRate = 0.08; // 8%
-        const taxAmount = Math.round(taxableAmount * taxRate * 100) / 100;
+        const { checkoutId, shippingAddress } = req.body;
+        const taxAmount = await checkoutService.calculateTax(checkoutId, shippingAddress);
 
         res.status(200).json({
           success: true,
           data: {
             taxAmount,
-            taxRate: taxRate * 100,
+            taxRate: 8.0,
             taxBreakdown: [
               {
                 type: 'state_tax',
@@ -204,60 +197,81 @@ export function checkoutController(
 
     applyCoupon: async (req: Request, res: Response) => {
       try {
-        const { couponCode, items, checkoutId } = req.body;
-
-        // Find coupon
-        const coupon = await couponRepository.findOne({
-          where: { code: couponCode, isActive: true }
-        });
-
-        if (!coupon) {
-          res.status(400).json({
-            success: false,
-            error: {
-              code: 'INVALID_COUPON',
-              message: 'Invalid coupon code'
-            }
-          });
-          return;
-        }
-
-        // Calculate discount
-        const totalAmount = items.reduce((sum: number, item: any) => 
-          sum + (item.unitPrice * item.quantity), 0);
-        
-        let discountAmount = 0;
-        if (coupon.type === 'percentage') {
-          discountAmount = (totalAmount * coupon.value) / 100;
-        } else if (coupon.type === 'fixed_amount') {
-          discountAmount = coupon.value;
-        }
+        const result = await checkoutService.applyCoupon(req.body);
 
         res.status(200).json({
           success: true,
-          data: {
-            couponApplied: true,
-            coupon: {
-              code: coupon.code,
-              name: coupon.name,
-              type: coupon.type,
-              value: coupon.value,
-              discountAmount
-            },
-            updatedSummary: {
-              subtotal: totalAmount,
-              taxAmount: 0,
-              shippingAmount: 0,
-              discountAmount,
-              totalAmount: totalAmount - discountAmount
-            }
-          }
+          data: result
         });
       } catch (error: any) {
         res.status(400).json({
           success: false,
           error: {
             code: 'COUPON_APPLICATION_FAILED',
+            message: error.message
+          }
+        });
+      }
+    },
+
+    // Get user addresses for checkout
+    getUserAddresses: async (req: Request, res: Response) => {
+      try {
+        const user = (req as any).user;
+        if (!user?.id) {
+          res.status(401).json({
+            success: false,
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'User not authenticated'
+            }
+          });
+          return;
+        }
+
+        const addresses = await checkoutService.getUserAddresses(user.id);
+        
+        res.status(200).json({
+          success: true,
+          data: addresses
+        });
+      } catch (error: any) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'GET_ADDRESSES_FAILED',
+            message: error.message
+          }
+        });
+      }
+    },
+
+    // Get default addresses for user
+    getDefaultAddresses: async (req: Request, res: Response) => {
+      try {
+        const user = (req as any).user;
+        if (!user?.id) {
+          res.status(401).json({
+            success: false,
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'User not authenticated'
+            }
+          });
+          return;
+        }
+
+        const addresses = await checkoutService.getDefaultAddresses(user.id);
+        
+        res.status(200).json({
+          success: true,
+          data: addresses
+        });
+      } catch (error: any) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'GET_DEFAULT_ADDRESSES_FAILED',
             message: error.message
           }
         });

@@ -9,6 +9,7 @@ import { CartResponseDto } from "./dto/cart-response.dto";
 import { GetCartQueryDto } from "./dto/get-cart-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
 import { cuid } from "../../libs/cuid";
+import { cacheService } from "../../common/services/cache.service";
 
 export class CartService {
   private cartRepository: Repository<Cart>;
@@ -424,6 +425,13 @@ export class CartService {
 
       params.push(new Date());
       await this.cartRepository.query(updateQuery, params);
+      
+      // Invalidate cart cache
+      if (userId) {
+        await cacheService.deletePattern(`cart:user:${userId}:*`);
+      } else if (guestId) {
+        await cacheService.deletePattern(`cart:guest:${guestId}:*`);
+      }
     } catch (error: any) {
       throw new Error(error.message);
     }

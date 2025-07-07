@@ -1,49 +1,7 @@
-import { IsArray, IsOptional, IsString, IsEnum, IsBoolean, ValidateNested, IsUUID, IsNumber, Min } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-
-export class CheckoutVariantDto {
-  @IsString()
-  attributeId: string;
-
-  @IsString()
-  attributeValueId: string;
-
-  @IsString()
-  attributeName: string;
-
-  @IsString()
-  attributeValue: string;
-
-  @IsNumber()
-  @Type(() => Number)
-  additionalPrice: number;
-}
-
-export class CheckoutItemDto {
-  @IsUUID()
-  id: string;
-
-  @IsUUID()
-  productId: string;
-
-  @IsNumber()
-  @Type(() => Number)
-  @Min(1)
-  quantity: number;
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CheckoutVariantDto)
-  selectedVariants?: CheckoutVariantDto[];
-}
+import { IsOptional, IsString, IsEnum, IsBoolean, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CheckoutInitiateDto {
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CheckoutItemDto)
-  cartItems: CheckoutItemDto[];
-
   @IsEnum(['guest', 'registered'])
   checkoutType: 'guest' | 'registered';
 
@@ -56,8 +14,24 @@ export class CheckoutInitiateDto {
   userId?: string;
 
   @IsOptional()
+  @IsUUID()
+  shippingAddressId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  billingAddressId?: string;
+
+  @IsOptional()
+  @IsString()
+  shippingMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: any }) => {
     if (typeof value === 'string') {
       return value === 'true' || value === '1';
     }

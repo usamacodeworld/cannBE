@@ -7,6 +7,7 @@ import mediaRoutes from "./modules/media/media.routes";
 import cartRoutes from "./modules/cart/cart.routes";
 import homeRoutes from "./modules/home/home.routes";
 import checkoutRoutes from "./modules/checkout/checkout.routes";
+import addressRoutes from "./modules/address/address.routes";
 
 const Router = r();
 
@@ -18,5 +19,6 @@ Router.use("/media", mediaRoutes);
 Router.use("/cart", cartRoutes);
 Router.use("/home", homeRoutes);
 Router.use("/checkout", checkoutRoutes);
+Router.use("/addresses", addressRoutes);
 
 export { Router };

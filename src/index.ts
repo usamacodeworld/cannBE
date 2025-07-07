@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./config/database";
+import { redis } from "./config/redis";
 import { Router as V1Router } from "./apiV1.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
 import { requestLogger } from "./common/middlewares/request-logger.middleware";
@@ -76,10 +77,14 @@ app.use(
   }
 );
 
-// Initialize TypeORM
-AppDataSource.initialize()
+// Initialize TypeORM and Redis
+Promise.all([
+  AppDataSource.initialize(),
+  redis.connect()
+])
   .then(() => {
-    console.log("Database connected successfully");
+    console.log("✅ Database connected successfully");
+    console.log("✅ Redis connected successfully");
 
     // Start servers
     const PORT_IP = Number(process.env.PORT_IP) || 3001;
@@ -88,12 +93,15 @@ AppDataSource.initialize()
 
     // Start server on IP address
     app.listen(PORT_IP, HOST_IP, () => {
-      console.log(`Server is running on http://${HOST_IP}:${PORT_IP}`);
+      console.log(`🚀 Server is running on http://${HOST_IP}:${PORT_IP}`);
     });
 
     // Start server on localhost
     app.listen(PORT_LOCAL, "localhost", () => {
-      console.log(`Server is running on http://localhost:${PORT_LOCAL}`);
+      console.log(`🚀 Server is running on http://localhost:${PORT_LOCAL}`);
     });
   })
-  .catch((error) => console.error("Error connecting to database:", error));
+  .catch((error) => {
+    console.error("❌ Error during initialization:", error);
+    process.exit(1);
+  });

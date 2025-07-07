@@ -14,13 +14,14 @@ import { OrderItem } from "../modules/checkout/entities/order-item.entity";
 import { OrderStatusHistory } from "../modules/checkout/entities/order-status-history.entity";
 import { ShippingAddress } from "../modules/checkout/entities/shipping-address.entity";
 import { Coupon } from "../modules/checkout/entities/coupon.entity";
+import { Address } from "../modules/address/address.entity";
 
 export const AppSeederDataSource = new DataSource({
   type: "postgres",
   host: process.env.DB_HOST || "localhost",
   port: parseInt(process.env.DB_PORT || "5432"),
   username: process.env.DB_USERNAME || "postgres",
-  password: process.env.DB_PASSWORD || "password",
+  password: process.env.DB_PASSWORD || "rootp",
   database: process.env.DB_NAME || "cannbe",
   synchronize: false,
   logging: false,
@@ -40,6 +41,7 @@ export const AppSeederDataSource = new DataSource({
     OrderStatusHistory,
     ShippingAddress,
     Coupon,
+    Address,
   ],
   migrations: ["src/migrations/*.ts"],
   subscribers: [],

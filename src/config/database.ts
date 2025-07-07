@@ -29,6 +29,7 @@ export const AppDataSource = new DataSource({
     "src/modules/checkout/entities/order-status-history.entity.ts",
     "src/modules/checkout/entities/shipping-address.entity.ts",
     "src/modules/checkout/entities/coupon.entity.ts",
+    "src/modules/address/address.entity.ts",
   ],
   migrations: ["src/migrations/*.ts"],
   subscribers: ["src/subscribers/*.ts"],

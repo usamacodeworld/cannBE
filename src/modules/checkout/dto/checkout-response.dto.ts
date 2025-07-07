@@ -39,6 +39,9 @@ export class ShippingMethodResponseDto {
 export class CheckoutInitiateResponseDto {
   checkoutId: string;
   summary: CheckoutSummaryDto;
+  items: CheckoutItemResponseDto[];
+  shippingAddress?: any;
+  billingAddress?: any;
   availablePaymentMethods: PAYMENT_METHOD[];
   availableShippingMethods: ShippingMethodResponseDto[];
 }
