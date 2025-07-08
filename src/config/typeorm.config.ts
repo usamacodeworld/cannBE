@@ -1,25 +1,29 @@
-import { DataSource, DataSourceOptions } from 'typeorm';
-import { User } from '../modules/user/user.entity';
-import { Role } from '../modules/role/entities/role.entity';
-import { Permission } from '../modules/permissions/entities/permission.entity';
-import { Category } from '../modules/category/category.entity';
-import dotenv from 'dotenv';
+import { DataSource, DataSourceOptions } from "typeorm";
+import { User } from "../modules/user/user.entity";
+import { Role } from "../modules/role/entities/role.entity";
+import { Permission } from "../modules/permissions/entities/permission.entity";
+import { Category } from "../modules/category/category.entity";
+import dotenv from "dotenv";
+import { Address } from "@/modules/address/address.entity";
 
 dotenv.config();
 
 export const typeormConfig: DataSourceOptions = {
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'cannbe',
-  synchronize: process.env.NODE_ENV !== 'production',
-  logging: process.env.NODE_ENV !== 'production',
-  entities: [User, Role, Permission, Category],
-  migrations: ['src/migrations/*.ts'],
-  subscribers: ['src/subscribers/*.ts'],
-  ssl: process.env.DB_SSL === 'true' ? {
-    rejectUnauthorized: false
-  } : false
+  type: "postgres",
+  host: process.env.DB_HOST || "localhost",
+  port: parseInt(process.env.DB_PORT || "5432"),
+  username: process.env.DB_USERNAME || "postgres",
+  password: process.env.DB_PASSWORD || "postgres",
+  database: process.env.DB_NAME || "cannbe",
+  synchronize: process.env.NODE_ENV !== "production",
+  logging: process.env.NODE_ENV !== "production",
+  entities: [User, Role, Permission, Category, Address],
+  migrations: ["src/migrations/*.ts"],
+  subscribers: ["src/subscribers/*.ts"],
+  ssl:
+    process.env.DB_SSL === "true"
+      ? {
+          rejectUnauthorized: false,
+        }
+      : false,
 };

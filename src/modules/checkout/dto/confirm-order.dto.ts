@@ -1,8 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsArray, ValidateNested, IsNumber, IsEmail, IsUUID } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { IsString, IsOptional, IsBoolean, IsEnum, IsEmail, IsUUID, ValidateNested } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { PAYMENT_METHOD } from '../entities/order.entity';
-import { AddressDto, BillingAddressDto } from './shipping-address.dto';
-import { CheckoutVariantDto } from './checkout-initiate.dto';
 
 export class CustomerInfoDto {
   @IsEmail()
@@ -19,98 +17,59 @@ export class CustomerInfoDto {
   phone?: string;
 }
 
-export class ShippingMethodDto {
+export class PaymentDataDto {
+  @IsOptional()
   @IsString()
-  id: string;
-
-  @IsString()
-  name: string;
-
-  @IsNumber()
-  @Type(() => Number)
-  price: number;
-
-  @IsNumber()
-  @Type(() => Number)
-  estimatedDays: number;
-}
-
-export class OrderSummaryDto {
-  @IsNumber()
-  @Type(() => Number)
-  subtotal: number;
-
-  @IsNumber()
-  @Type(() => Number)
-  taxAmount: number;
-
-  @IsNumber()
-  @Type(() => Number)
-  shippingAmount: number;
-
-  @IsNumber()
-  @Type(() => Number)
-  discountAmount: number;
-
-  @IsNumber()
-  @Type(() => Number)
-  totalAmount: number;
-}
-
-export class OrderItemDto {
-  @IsUUID()
-  productId: string;
-
-  @IsNumber()
-  @Type(() => Number)
-  quantity: number;
-
-  @IsNumber()
-  @Type(() => Number)
-  unitPrice: number;
+  cardNumber?: string;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CheckoutVariantDto)
-  selectedVariants?: CheckoutVariantDto[];
+  @IsString()
+  expiryMonth?: string;
+
+  @IsOptional()
+  @IsString()
+  expiryYear?: string;
+
+  @IsOptional()
+  @IsString()
+  cvv?: string;
+
+  @IsOptional()
+  @IsString()
+  cardholderName?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentMethodId?: string;
 }
 
 export class ConfirmOrderDto {
   @IsString()
   checkoutId: string;
 
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+
+  @IsOptional()
+  @IsString()
+  guestId?: string;
+
   @ValidateNested()
   @Type(() => CustomerInfoDto)
   customerInfo: CustomerInfoDto;
-
-  @ValidateNested()
-  @Type(() => AddressDto)
-  shippingAddress: AddressDto;
-
-  @ValidateNested()
-  @Type(() => BillingAddressDto)
-  billingAddress: BillingAddressDto;
-
-  @ValidateNested()
-  @Type(() => ShippingMethodDto)
-  shippingMethod: ShippingMethodDto;
 
   @IsEnum(PAYMENT_METHOD)
   paymentMethod: PAYMENT_METHOD;
 
   @IsOptional()
+  @ValidateNested()
+  @Type(() => PaymentDataDto)
+  paymentData?: PaymentDataDto;
+
+  @IsOptional()
   @IsString()
   paymentTransactionId?: string;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OrderItemDto)
-  items: OrderItemDto[];
-
-  @ValidateNested()
-  @Type(() => OrderSummaryDto)
-  orderSummary: OrderSummaryDto;
 
   @IsOptional()
   @IsString()
@@ -122,7 +81,7 @@ export class ConfirmOrderDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: any }) => {
     if (typeof value === 'string') {
       return value === 'true' || value === '1';
     }
@@ -132,7 +91,7 @@ export class ConfirmOrderDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: any }) => {
     if (typeof value === 'string') {
       return value === 'true' || value === '1';
     }

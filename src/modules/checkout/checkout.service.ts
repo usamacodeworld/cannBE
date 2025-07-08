@@ -1,18 +1,39 @@
-import { Repository } from 'typeorm';
-import { Order, ORDER_STATUS, PAYMENT_STATUS, PAYMENT_METHOD } from './entities/order.entity';
-import { OrderItem } from './entities/order-item.entity';
-import { OrderStatusHistory } from './entities/order-status-history.entity';
-import { ShippingAddress } from './entities/shipping-address.entity';
-import { Coupon, COUPON_TYPE } from './entities/coupon.entity';
-import { Cart } from '../cart/entities/cart.entity';
-import { Product } from '../products/entities/product.entity';
-import { User } from '../user/user.entity';
-import { CheckoutInitiateDto } from './dto/checkout-initiate.dto';
-import { ShippingAddressDto } from './dto/shipping-address.dto';
-import { ApplyCouponDto } from './dto/apply-coupon.dto';
-import { ConfirmOrderDto } from './dto/confirm-order.dto';
-import { CheckoutInitiateResponseDto, CheckoutSummaryDto, ShippingMethodResponseDto, CouponApplicationResponseDto, OrderConfirmationResponseDto } from './dto/checkout-response.dto';
-import { v4 as uuidv4 } from 'uuid';
+import { Repository, DataSource } from "typeorm";
+import {
+  Order,
+  ORDER_STATUS,
+  PAYMENT_STATUS,
+  PAYMENT_METHOD,
+} from "./entities/order.entity";
+import { OrderItem } from "./entities/order-item.entity";
+import { OrderStatusHistory } from "./entities/order-status-history.entity";
+import { ShippingAddress } from "./entities/shipping-address.entity";
+import { Coupon, COUPON_TYPE } from "./entities/coupon.entity";
+import { Cart } from "../cart/entities/cart.entity";
+import { Product } from "../products/entities/product.entity";
+import { User } from "../user/user.entity";
+import {
+  Address,
+  ADDRESS_TYPE,
+  ADDRESS_STATUS,
+} from "../address/address.entity";
+import { CheckoutInitiateDto } from "./dto/checkout-initiate.dto";
+import { ShippingAddressDto } from "./dto/shipping-address.dto";
+import { ApplyCouponDto } from "./dto/apply-coupon.dto";
+import { ConfirmOrderDto } from "./dto/confirm-order.dto";
+import {
+  CheckoutInitiateResponseDto,
+  CheckoutSummaryDto,
+  ShippingMethodResponseDto,
+  CouponApplicationResponseDto,
+  OrderConfirmationResponseDto,
+} from "./dto/checkout-response.dto";
+import { v4 as uuidv4 } from "uuid";
+import { cacheService } from "../../common/services/cache.service";
+import { paymentService } from "../../common/services/payment.service";
+import { shippingService } from "../../common/services/shipping.service";
+import { taxService } from "../../common/services/tax.service";
+import { emailService } from "../../common/services/email.service";
 
 export class CheckoutService {
   private orderRepository: Repository<Order>;
@@ -23,9 +44,45 @@ export class CheckoutService {
   private cartRepository: Repository<Cart>;
   private productRepository: Repository<Product>;
   private userRepository: Repository<User>;
+  private addressRepository: Repository<Address>;
+  private dataSource: DataSource;
 
-  // In-memory checkout sessions (in production, use Redis or database)
-  private checkoutSessions = new Map<string, any>();
+  // Redis-based checkout sessions with 30-minute TTL
+  private readonly CHECKOUT_SESSION_TTL = 1800; // 30 minutes
+
+  // Redis-based checkout session management
+  private async getCheckoutSession(checkoutId: string): Promise<any | null> {
+    try {
+      const sessionKey = `checkout:session:${checkoutId}`;
+      return await cacheService.get(sessionKey);
+    } catch (error) {
+      console.error("Error getting checkout session:", error);
+      return null;
+    }
+  }
+
+  private async setCheckoutSession(
+    checkoutId: string,
+    sessionData: any
+  ): Promise<void> {
+    try {
+      const sessionKey = `checkout:session:${checkoutId}`;
+      await cacheService.set(sessionKey, sessionData, {
+        ttl: this.CHECKOUT_SESSION_TTL,
+      });
+    } catch (error) {
+      console.error("Error setting checkout session:", error);
+    }
+  }
+
+  private async deleteCheckoutSession(checkoutId: string): Promise<void> {
+    try {
+      const sessionKey = `checkout:session:${checkoutId}`;
+      await cacheService.delete(sessionKey);
+    } catch (error) {
+      console.error("Error deleting checkout session:", error);
+    }
+  }
 
   constructor(
     orderRepository: Repository<Order>,
@@ -35,7 +92,9 @@ export class CheckoutService {
     couponRepository: Repository<Coupon>,
     cartRepository: Repository<Cart>,
     productRepository: Repository<Product>,
-    userRepository: Repository<User>
+    userRepository: Repository<User>,
+    addressRepository: Repository<Address>,
+    dataSource: DataSource
   ) {
     this.orderRepository = orderRepository;
     this.orderItemRepository = orderItemRepository;
@@ -45,61 +104,131 @@ export class CheckoutService {
     this.cartRepository = cartRepository;
     this.productRepository = productRepository;
     this.userRepository = userRepository;
+    this.addressRepository = addressRepository;
+    this.dataSource = dataSource;
   }
 
-  async initiateCheckout(data: CheckoutInitiateDto): Promise<CheckoutInitiateResponseDto> {
+  async initiateCheckout(
+    data: CheckoutInitiateDto
+  ): Promise<CheckoutInitiateResponseDto> {
     try {
       const checkoutId = uuidv4();
-      
+
+      // Get cart items from user's cart automatically
+      const cartItems = await this.getUserCartItems(data.userId, data.guestId);
+      // console.log("User Carts===> ", cartItems);
+      if (!cartItems || cartItems.length === 0) {
+        throw new Error(
+          "Cart is empty. Please add items to cart before checkout."
+        );
+      }
+
       // Validate cart items
-      const validatedItems = await this.validateCartItems(data.cartItems);
-      
+      const validatedItems = await this.validateCartItems(cartItems);
+      console.log("validatedItems===> ", validatedItems);
       // Calculate summary
       const summary = await this.calculateSummary(validatedItems);
+
+      // Get user addresses if provided
+      let shippingAddress = null;
+      let billingAddress = null;
+
+      if (data.shippingAddressId) {
+        shippingAddress = await this.validateUserAddress(
+          data.userId!,
+          data.shippingAddressId
+        );
+      }
+
+      if (data.billingAddressId) {
+        billingAddress = await this.validateUserAddress(
+          data.userId!,
+          data.billingAddressId
+        );
+      }
+
+      // Store checkout session in Redis
+      const sessionData = {
+        checkoutId,
+        items: validatedItems,
+        summary,
+        userId: data.userId,
+        guestId: data.guestId,
+        shippingAddressId: data.shippingAddressId,
+        billingAddressId: data.billingAddressId,
+        shippingMethod: data.shippingMethod,
+        paymentMethod: data.paymentMethod,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await this.setCheckoutSession(checkoutId, sessionData);
 
       return {
         checkoutId,
         summary,
-        availablePaymentMethods: [PAYMENT_METHOD.CREDIT_CARD, PAYMENT_METHOD.PAYPAL, PAYMENT_METHOD.CASH_ON_DELIVERY],
-        availableShippingMethods: [
-          { id: 'standard', name: 'Standard Shipping', description: '5-7 business days', price: 9.99, estimatedDays: 7 }
-        ]
+        items: validatedItems,
+        shippingAddress,
+        billingAddress,
+        availablePaymentMethods: [
+          PAYMENT_METHOD.CREDIT_CARD,
+          PAYMENT_METHOD.PAYPAL,
+          PAYMENT_METHOD.CASH_ON_DELIVERY,
+        ],
+        availableShippingMethods:
+          await shippingService.getDefaultShippingMethods(),
       };
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to initiate checkout');
+      throw new Error(error.message || "Failed to initiate checkout");
     }
   }
 
-  async applyCoupon(data: ApplyCouponDto): Promise<CouponApplicationResponseDto> {
+  async applyCoupon(
+    data: ApplyCouponDto
+  ): Promise<CouponApplicationResponseDto> {
     try {
       // Get checkout session
-      const session = this.checkoutSessions.get(data.checkoutId);
+      const session = await this.getCheckoutSession(data.checkoutId);
       if (!session) {
-        throw new Error('Checkout session not found or expired');
+        throw new Error("Checkout session not found or expired");
       }
 
       // Find coupon
       const coupon = await this.couponRepository.findOne({
-        where: { code: data.couponCode, isActive: true }
+        where: { code: data.couponCode, isActive: true },
       });
 
       if (!coupon) {
-        throw new Error('Invalid coupon code');
+        throw new Error("Invalid coupon code");
       }
 
       // Validate coupon
-      const couponValidation = await this.validateCoupon(coupon, data.items, session.userId);
+      const couponValidation = await this.validateCoupon(
+        coupon,
+        data.items,
+        session.userId
+      );
       if (!couponValidation.valid) {
         throw new Error(couponValidation.message);
       }
 
       // Calculate discount
-      const discountAmount = await this.calculateCouponDiscount(coupon, data.items);
+      const discountAmount = await this.calculateCouponDiscount(
+        coupon,
+        data.items
+      );
 
       // Update session with coupon
       session.coupon = coupon;
       session.discountAmount = discountAmount;
-      session.summary = await this.calculateSummary(session.items, discountAmount);
+      session.summary = await this.calculateSummary(
+        session.items,
+        discountAmount
+      );
+      session.updatedAt = new Date();
+
+      // Save updated session to Redis
+      await this.setCheckoutSession(data.checkoutId, session);
 
       return {
         couponApplied: true,
@@ -108,163 +237,412 @@ export class CheckoutService {
           name: coupon.name,
           type: coupon.type,
           value: coupon.value,
-          discountAmount
+          discountAmount,
         },
-        updatedSummary: session.summary
+        updatedSummary: session.summary,
       };
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to apply coupon');
+      throw new Error(error.message || "Failed to apply coupon");
     }
   }
 
-  async calculateShipping(checkoutId: string, shippingAddress: any): Promise<ShippingMethodResponseDto[]> {
+  async calculateShipping(
+    checkoutId: string,
+    shippingAddress: any
+  ): Promise<ShippingMethodResponseDto[]> {
     try {
-      const session = this.checkoutSessions.get(checkoutId);
+      const session = await this.getCheckoutSession(checkoutId);
       if (!session) {
-        throw new Error('Checkout session not found or expired');
+        throw new Error("Checkout session not found or expired");
       }
 
-      // Calculate shipping costs based on address and items
-      const shippingMethods = await this.getShippingMethods(shippingAddress, session.items);
-      
-      return shippingMethods;
+      // Convert items to shipping format
+      const shippingItems = session.items.map((item: any) => ({
+        weight: item.product.weight || 1,
+        length: item.product.length || 10,
+        width: item.product.width || 10,
+        height: item.product.height || 10,
+        quantity: item.quantity,
+        description: item.product.name,
+      }));
+
+      const shippingRequest = {
+        fromAddress: {
+          firstName: "CannBE",
+          lastName: "Store",
+          addressLine1: "123 Business Street",
+          city: "Business City",
+          state: "CA",
+          postalCode: "90210",
+          country: "US",
+        },
+        toAddress: shippingAddress,
+        items: shippingItems,
+        weight: shippingService.calculateWeight(shippingItems),
+      };
+
+      // Get real shipping rates
+      const shippingResponse = await shippingService.getShippingRates(
+        shippingRequest
+      );
+
+      if (shippingResponse.success) {
+        return shippingResponse.methods;
+      } else {
+        // Fallback to default methods
+        return shippingService.getDefaultShippingMethods();
+      }
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to calculate shipping');
+      console.error("Shipping calculation error:", error);
+      // Return default shipping methods as fallback
+      return shippingService.getDefaultShippingMethods();
     }
   }
 
-  async calculateTax(checkoutId: string, shippingAddress: any): Promise<number> {
+  async calculateTax(
+    checkoutId: string,
+    shippingAddress: any
+  ): Promise<number> {
     try {
-      const session = this.checkoutSessions.get(checkoutId);
+      const session = await this.getCheckoutSession(checkoutId);
       if (!session) {
-        throw new Error('Checkout session not found or expired');
+        throw new Error("Checkout session not found or expired");
       }
 
-      // Calculate tax based on shipping address and items
-      const taxAmount = await this.calculateTaxAmount(shippingAddress, session.items);
-      
+      // Convert items to tax format
+      const taxItems = session.items.map((item: any) => ({
+        id: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        description: item.product.name,
+      }));
+
+      const taxRequest = {
+        fromAddress: {
+          country: "US",
+          state: "CA",
+          city: "Business City",
+          postalCode: "90210",
+        },
+        toAddress: {
+          country: shippingAddress.country,
+          state: shippingAddress.state,
+          city: shippingAddress.city,
+          postalCode: shippingAddress.postalCode,
+        },
+        items: taxItems,
+        shippingAmount: session.summary.shippingAmount || 0,
+      };
+
+      // Calculate real tax
+      const taxCalculation = await taxService.calculateTax(taxRequest);
+
       // Update session with tax
-      session.taxAmount = taxAmount;
-      session.summary = await this.calculateSummary(session.items, session.discountAmount, session.shippingAmount, taxAmount);
+      session.taxAmount = taxCalculation.taxAmount;
+      session.summary = await this.calculateSummary(
+        session.items,
+        session.discountAmount,
+        session.shippingAmount,
+        taxCalculation.taxAmount
+      );
 
-      return taxAmount;
+      // Save updated session to Redis
+      await this.setCheckoutSession(checkoutId, session);
+
+      return taxCalculation.taxAmount;
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to calculate tax');
+      console.error("Tax calculation error:", error);
+      // Fallback to basic calculation
+      const session = await this.getCheckoutSession(checkoutId);
+      // Basic tax calculation fallback
+      const taxableAmount = (session?.items || []).reduce(
+        (sum: number, item: any) => sum + item.unitPrice * item.quantity,
+        0
+      );
+      const taxRate = 0.08; // 8% default
+      return Math.round(taxableAmount * taxRate * 100) / 100;
     }
   }
 
-  async confirmOrder(data: ConfirmOrderDto): Promise<OrderConfirmationResponseDto> {
-    try {
-      const orderNumber = await this.generateOrderNumber();
+  async confirmOrder(
+    data: ConfirmOrderDto
+  ): Promise<OrderConfirmationResponseDto> {
+    return await this.dataSource.transaction(async (manager) => {
+      try {
+        // Get checkout session to retrieve cartId
+        const session = await this.getCheckoutSession(data.checkoutId);
+        console.log("Session ==> ", session);
+        if (!session) {
+          throw new Error("Checkout session not found or expired");
+        }
 
-      const order = this.orderRepository.create({
-        orderNumber,
-        userId: undefined, // Will be set if user is logged in
-        guestId: uuidv4(), // Generate for guest checkout
-        status: ORDER_STATUS.PENDING,
-        subtotal: data.orderSummary.subtotal,
-        taxAmount: data.orderSummary.taxAmount,
-        shippingAmount: data.orderSummary.shippingAmount,
-        discountAmount: data.orderSummary.discountAmount,
-        totalAmount: data.orderSummary.totalAmount,
-        paymentStatus: PAYMENT_STATUS.PENDING,
-        paymentMethod: data.paymentMethod,
-        shippingAddress: data.shippingAddress,
-        billingAddress: data.billingAddress,
-        customerEmail: data.customerInfo.email,
-        customerFirstName: data.customerInfo.firstName,
-        customerLastName: data.customerInfo.lastName,
-        customerPhone: data.customerInfo.phone,
-        notes: data.notes
-      });
+        const orderNumber = await this.generateOrderNumber();
 
-      const savedOrder = await this.orderRepository.save(order);
+        // Get addresses from session or validate provided IDs
+        let shippingAddress = session.shippingAddress;
+        let billingAddress = session.billingAddress;
 
-      // Create order items
-      const orderItems = [];
-      for (const item of data.items) {
-        const product = await this.productRepository.findOne({
-          where: { id: item.productId }
+        if (session.shippingAddressId && !shippingAddress) {
+          shippingAddress = await this.validateUserAddress(
+            data.userId!,
+            session.shippingAddressId
+          );
+        }
+
+        if (session.billingAddressId && !billingAddress) {
+          billingAddress = await this.validateUserAddress(
+            data.userId!,
+            session.billingAddressId
+          );
+        }
+
+        // Get shipping method from session
+        const shippingMethod = session.shippingMethod || {
+          id: "standard",
+          name: "Standard Shipping",
+          price: 9.99,
+          estimatedDays: 7,
+        };
+
+        const paymentRequest = {
+          amount: session.summary.totalAmount,
+          currency: "USD",
+          paymentMethod: data.paymentMethod || PAYMENT_METHOD.CREDIT_CARD,
+          paymentData: {
+            cardNumber: data.paymentData?.cardNumber,
+            expiryMonth: data.paymentData?.expiryMonth,
+            expiryYear: data.paymentData?.expiryYear,
+            cvv: data.paymentData?.cvv,
+            cardholderName: data.paymentData?.cardholderName,
+            billingAddress: billingAddress,
+          },
+          orderId: orderNumber,
+          orderNumber,
+          customerEmail: billingAddress.email,
+          customerName: "John Doe",
+          description: `Order ${orderNumber}`,
+        };
+
+        // Process payment first
+        // const paymentRequest = {
+        //   amount: session.summary.totalAmount,
+        //   currency: "USD",
+        //   paymentMethod: data.paymentMethod,
+        //   paymentData: {
+        //     cardNumber: data.paymentData?.cardNumber,
+        //     expiryMonth: data.paymentData?.expiryMonth,
+        //     expiryYear: data.paymentData?.expiryYear,
+        //     cvv: data.paymentData?.cvv,
+        //     cardholderName: data.paymentData?.cardholderName,
+        //     billingAddress: billingAddress,
+        //     paymentMethodId: data.paymentData?.paymentMethodId,
+        //   },
+        //   orderId: orderNumber,
+        //   orderNumber,
+        //   customerEmail: data.customerInfo.email,
+        //   customerName: `${data.customerInfo.firstName} ${data.customerInfo.lastName}`,
+        //   description: `Order ${orderNumber}`,
+        // };
+
+        const paymentResponse = await paymentService.processPayment(
+          paymentRequest
+        );
+
+        if (
+          !paymentResponse.success &&
+          paymentResponse.paymentStatus !== PAYMENT_STATUS.PENDING
+        ) {
+          throw new Error(paymentResponse.error || "Payment processing failed");
+        }
+
+        // Create order
+        const order = manager.create(Order, {
+          orderNumber,
+          userId: data.userId,
+          guestId: data.guestId || uuidv4(),
+          status: ORDER_STATUS.PENDING,
+          subtotal: session.summary.subtotal,
+          taxAmount: session.summary.taxAmount,
+          shippingAmount: session.summary.shippingAmount,
+          discountAmount: session.summary.discountAmount,
+          totalAmount: session.summary.totalAmount,
+          paymentStatus: paymentResponse.paymentStatus,
+          paymentMethod: data.paymentMethod,
+          paymentTransactionId: paymentResponse.transactionId,
+          paymentGatewayResponse: JSON.stringify(
+            paymentResponse.gatewayResponse
+          ),
+          shippingAddress: shippingAddress,
+          billingAddress: billingAddress,
+          shippingMethod: shippingMethod.name,
+          customerEmail: billingAddress.email,
+          customerFirstName: billingAddress.firstName,
+          customerLastName: billingAddress.lastName,
+          customerPhone: billingAddress.phone,
+          notes: data.notes,
+          couponCode: data.couponCode,
         });
 
-        const orderItem = this.orderItemRepository.create({
-          orderId: savedOrder.id,
-          productId: item.productId,
-          productName: product?.name || 'Unknown Product',
-          productSlug: product?.slug,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.unitPrice * item.quantity,
-          selectedVariants: item.selectedVariants,
-          productSnapshot: product,
-          thumbnailImage: product?.thumbnailImgId
-        });
+        const savedOrder = await manager.save(Order, order);
 
-        orderItems.push(await this.orderItemRepository.save(orderItem));
-      }
+        // Create order items
+        const orderItems = [];
+        for (const item of session.items) {
+          const product = await this.productRepository.findOne({
+            where: { id: item.productId },
+          });
 
-      // Create initial status history
-      const statusHistory = this.orderStatusHistoryRepository.create({
-        orderId: savedOrder.id,
-        status: ORDER_STATUS.PENDING,
-        notes: 'Order created',
-        notificationSent: false
-      });
-
-      await this.orderStatusHistoryRepository.save(statusHistory);
-
-      // Update product stock
-      await this.updateProductStock(data.items);
-
-      // Update coupon usage if applicable
-      if (data.couponCode) {
-        await this.updateCouponUsage(data.couponCode, savedOrder.id, undefined);
-      }
-
-      // Clear cart items
-      await this.clearCartItems(undefined, savedOrder.guestId);
-
-      // Clean up checkout session
-      this.checkoutSessions.delete(data.checkoutId);
-
-      // Prepare response
-      const response: OrderConfirmationResponseDto = {
-        order: {
-          id: savedOrder.id,
-          orderNumber: savedOrder.orderNumber,
-          status: savedOrder.status,
-          paymentStatus: savedOrder.paymentStatus,
-          totalAmount: savedOrder.totalAmount,
-          estimatedDeliveryDate: new Date(Date.now() + data.shippingMethod.estimatedDays * 24 * 60 * 60 * 1000),
-          trackingNumber: savedOrder.trackingNumber,
-          items: orderItems.map(item => ({
-            id: item.id,
+          const orderItem = manager.create(OrderItem, {
+            orderId: savedOrder.id,
             productId: item.productId,
-            productName: item.productName,
+            productName: product?.name || "Unknown Product",
+            productSlug: product?.slug,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            selectedVariants: item.selectedVariants
-          })),
-          shippingAddress: savedOrder.shippingAddress,
-          createdAt: savedOrder.createdAt,
-          updatedAt: savedOrder.updatedAt
-        },
-        paymentReceipt: {
-          transactionId: savedOrder.paymentTransactionId || '',
-          paymentMethod: savedOrder.paymentMethod,
-          amount: savedOrder.totalAmount,
-          currency: 'USD',
-          status: savedOrder.paymentStatus
-        },
-        emailSent: false,
-        invoiceUrl: undefined
-      };
+            totalPrice: item.unitPrice * item.quantity,
+            selectedVariants: item.selectedVariants,
+            productSnapshot: product,
+            thumbnailImage: product?.thumbnailImgId,
+          });
 
-      return response;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to confirm order');
-    }
+          orderItems.push(await manager.save(OrderItem, orderItem));
+        }
+
+        // Create initial status history
+        const statusHistory = manager.create(OrderStatusHistory, {
+          orderId: savedOrder.id,
+          status: ORDER_STATUS.PENDING,
+          notes: "Order created",
+          notificationSent: false,
+        });
+
+        await manager.save(OrderStatusHistory, statusHistory);
+
+        // Update product stock
+        await this.updateProductStock(session.items, manager);
+
+        // Update coupon usage if applicable
+        if (data.couponCode) {
+          await this.updateCouponUsage(
+            data.couponCode,
+            savedOrder.id,
+            manager,
+            data.userId
+          );
+        }
+
+        // Clear cart items
+        await this.clearCartItems(manager, data.userId, savedOrder.guestId);
+
+        // Clean up checkout session
+        await this.deleteCheckoutSession(data.checkoutId);
+
+        // Create shipment if not cash on delivery
+        let trackingNumber: string | undefined;
+        if (data.paymentMethod !== PAYMENT_METHOD.CASH_ON_DELIVERY) {
+          const shippingItems = session.items.map((item: any) => ({
+            weight: 1, // Default weight
+            length: 10,
+            width: 10,
+            height: 10,
+            quantity: item.quantity,
+            description: "Product",
+          }));
+
+          const shipmentResult = await shippingService.createShipment(
+            {
+              id: shippingMethod.id,
+              name: shippingMethod.name,
+              description: shippingMethod.name,
+              price: shippingMethod.price,
+              estimatedDays: shippingMethod.estimatedDays,
+              carrier: "USPS",
+              serviceCode: shippingMethod.id,
+              trackingAvailable: true,
+            },
+            {
+              fromAddress: {
+                firstName: "CannBE",
+                lastName: "Store",
+                addressLine1: "123 Business Street",
+                city: "Business City",
+                state: "CA",
+                postalCode: "90210",
+                country: "US",
+              },
+              toAddress: shippingAddress,
+              items: shippingItems,
+              weight: shippingService.calculateWeight(shippingItems),
+            },
+            orderNumber
+          );
+
+          if (shipmentResult.success && shipmentResult.trackingNumber) {
+            trackingNumber = shipmentResult.trackingNumber;
+            savedOrder.trackingNumber = trackingNumber;
+            await manager.save(Order, savedOrder);
+          }
+        }
+
+        // Send confirmation email
+        const emailData = {
+          order: savedOrder,
+          customerName: `${billingAddress.firstName} ${billingAddress.lastName}`,
+          customerEmail: billingAddress.email,
+          orderNumber,
+          totalAmount: session.summary.totalAmount,
+          items: orderItems,
+          shippingAddress: shippingAddress,
+          trackingNumber,
+          estimatedDelivery: new Date(
+            Date.now() + shippingMethod.estimatedDays * 24 * 60 * 60 * 1000
+          ),
+        };
+
+        const emailSent = await emailService.sendOrderConfirmation(emailData);
+
+        // Prepare response
+        const response: OrderConfirmationResponseDto = {
+          order: {
+            id: savedOrder.id,
+            orderNumber: savedOrder.orderNumber,
+            status: savedOrder.status,
+            paymentStatus: savedOrder.paymentStatus,
+            totalAmount: savedOrder.totalAmount,
+            estimatedDeliveryDate: new Date(
+              Date.now() + shippingMethod.estimatedDays * 24 * 60 * 60 * 1000
+            ),
+            trackingNumber: savedOrder.trackingNumber,
+            items: orderItems.map((item) => ({
+              id: item.id,
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              selectedVariants: item.selectedVariants,
+            })),
+            shippingAddress: savedOrder.shippingAddress,
+            createdAt: savedOrder.createdAt,
+            updatedAt: savedOrder.updatedAt,
+          },
+          paymentReceipt: {
+            transactionId: savedOrder.paymentTransactionId || "",
+            paymentMethod: savedOrder.paymentMethod,
+            amount: savedOrder.totalAmount,
+            currency: "USD",
+            status: savedOrder.paymentStatus,
+          },
+          emailSent: emailSent,
+          invoiceUrl: undefined,
+        };
+
+        return response;
+      } catch (error: any) {
+        console.error("Order confirmation error:", error);
+        throw new Error(error.message || "Failed to confirm order");
+      }
+    });
   }
 
   private async validateCartItems(cartItems: any[]): Promise<any[]> {
@@ -272,7 +650,8 @@ export class CheckoutService {
 
     for (const item of cartItems) {
       const product = await this.productRepository.findOne({
-        where: { id: item.productId }
+        where: { id: item.productId },
+        relations: ["attributes", "attributes.values"], // Ensure attribute values are loaded
       });
 
       if (!product) {
@@ -280,24 +659,52 @@ export class CheckoutService {
       }
 
       if (!product.published || !product.approved) {
-        throw new Error(`Product ${product.name} is not available for purchase`);
+        throw new Error(
+          `Product ${product.name} is not available for purchase`
+        );
       }
 
       if (product.stock && product.stock < item.quantity) {
         throw new Error(`Insufficient stock for product ${product.name}`);
       }
 
+      let unitPrice = product.salePrice || product.regularPrice || 0;
+
+      // If item has variants, get the price from the selected attribute value
+      if (item.selectedVariants && item.selectedVariants.length > 0) {
+        console.log("Yes found ==> ", item);
+        for (const variant of item.selectedVariants) {
+          console.log("product attribute ==> ", product.attributes);
+          for (const attr of product.attributes || []) {
+            const attrValue = (attr.values || []).find(
+              (val: any) => val.id === variant.attributeValueId
+            );
+            console.log("Attribute value ==> ", attrValue);
+            if (attrValue && attrValue.price) {
+              console.log("Price Found ==> ", attrValue.price);
+              unitPrice = Number(attrValue.price);
+              break;
+            }
+          }
+        }
+      }
+
       validatedItems.push({
         ...item,
         product,
-        unitPrice: product.salePrice || product.regularPrice || 0
+        unitPrice,
       });
     }
 
     return validatedItems;
   }
 
-  private async calculateSummary(items: any[], discountAmount = 0, shippingAmount = 0, taxAmount = 0): Promise<CheckoutSummaryDto> {
+  private async calculateSummary(
+    items: any[],
+    discountAmount = 0,
+    shippingAmount = 0,
+    taxAmount = 0
+  ): Promise<CheckoutSummaryDto> {
     let subtotal = 0;
     const checkoutItems = [];
 
@@ -314,7 +721,7 @@ export class CheckoutService {
         unitPrice: item.unitPrice,
         totalPrice: itemTotal,
         selectedVariants: item.selectedVariants,
-        thumbnailImage: item.product.thumbnailImgId
+        thumbnailImage: item.product.thumbnailImgId,
       });
     }
 
@@ -327,22 +734,28 @@ export class CheckoutService {
       discountAmount,
       totalAmount,
       itemCount: items.length,
-      items: checkoutItems
+      items: checkoutItems,
     };
   }
 
-  private async getShippingMethods(address: any, items: any[]): Promise<ShippingMethodResponseDto[]> {
+  private async getShippingMethods(
+    address: any,
+    items: any[]
+  ): Promise<ShippingMethodResponseDto[]> {
     // Calculate shipping based on address and items
     const baseMethods = await this.getAvailableShippingMethods();
-    
+
     // You can modify prices based on destination, weight, etc.
     return baseMethods;
   }
 
-  private async calculateTaxAmount(address: any, items: any[]): Promise<number> {
+  private async calculateTaxAmount(
+    address: any,
+    items: any[]
+  ): Promise<number> {
     // Mock tax calculation - in production, integrate with tax service
     let taxableAmount = 0;
-    
+
     for (const item of items) {
       taxableAmount += item.unitPrice * item.quantity;
     }
@@ -352,34 +765,50 @@ export class CheckoutService {
     return Math.round(taxableAmount * taxRate * 100) / 100;
   }
 
-  private async validateCoupon(coupon: Coupon, items: any[], userId?: string): Promise<{ valid: boolean; message?: string }> {
+  private async validateCoupon(
+    coupon: Coupon,
+    items: any[],
+    userId?: string
+  ): Promise<{ valid: boolean; message?: string }> {
     // Check if coupon is expired
     if (coupon.endDate && new Date() > coupon.endDate) {
-      return { valid: false, message: 'Coupon has expired' };
+      return { valid: false, message: "Coupon has expired" };
     }
 
     if (coupon.startDate && new Date() < coupon.startDate) {
-      return { valid: false, message: 'Coupon is not yet active' };
+      return { valid: false, message: "Coupon is not yet active" };
     }
 
     // Check usage limit
     if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
-      return { valid: false, message: 'Coupon usage limit reached' };
+      return { valid: false, message: "Coupon usage limit reached" };
     }
 
     // Check minimum amount
     if (coupon.minimumAmount) {
-      const totalAmount = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+      const totalAmount = items.reduce(
+        (sum, item) => sum + item.unitPrice * item.quantity,
+        0
+      );
       if (totalAmount < coupon.minimumAmount) {
-        return { valid: false, message: `Minimum order amount of $${coupon.minimumAmount} required` };
+        return {
+          valid: false,
+          message: `Minimum order amount of $${coupon.minimumAmount} required`,
+        };
       }
     }
 
     return { valid: true };
   }
 
-  private async calculateCouponDiscount(coupon: Coupon, items: any[]): Promise<number> {
-    const totalAmount = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+  private async calculateCouponDiscount(
+    coupon: Coupon,
+    items: any[]
+  ): Promise<number> {
+    const totalAmount = items.reduce(
+      (sum, item) => sum + item.unitPrice * item.quantity,
+      0
+    );
 
     let discountAmount = 0;
 
@@ -399,38 +828,49 @@ export class CheckoutService {
 
   private async generateOrderNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const randomNum = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    const randomNum = Math.floor(Math.random() * 1000000)
+      .toString()
+      .padStart(6, "0");
     return `ORD-${year}-${randomNum}`;
   }
 
-  private async updateProductStock(items: any[]): Promise<void> {
+  private async updateProductStock(items: any[], manager: any): Promise<void> {
     for (const item of items) {
       const product = await this.productRepository.findOne({
-        where: { id: item.productId }
+        where: { id: item.productId },
       });
 
       if (product && product.stock) {
         product.stock -= item.quantity;
         product.numOfSales = (product.numOfSales || 0) + item.quantity;
-        await this.productRepository.save(product);
+        await manager.save(Product, product);
       }
     }
   }
 
-  private async updateCouponUsage(couponCode: string, orderId: string, userId?: string): Promise<void> {
+  private async updateCouponUsage(
+    couponCode: string,
+    orderId: string,
+    manager: any,
+    userId?: string
+  ): Promise<void> {
     const coupon = await this.couponRepository.findOne({
-      where: { code: couponCode }
+      where: { code: couponCode },
     });
 
     if (coupon) {
       coupon.usageCount += 1;
-      await this.couponRepository.save(coupon);
+      await manager.save(Coupon, coupon);
     }
   }
 
-  private async clearCartItems(userId?: string, guestId?: string): Promise<void> {
+  private async clearCartItems(
+    manager: any,
+    userId?: string,
+    guestId?: string
+  ): Promise<void> {
     const whereCondition: any = {};
-    
+
     if (userId) {
       whereCondition.userId = userId;
     } else if (guestId) {
@@ -438,40 +878,67 @@ export class CheckoutService {
     }
 
     if (Object.keys(whereCondition).length > 0) {
-      await this.cartRepository.delete(whereCondition);
+      await manager.delete(Cart, whereCondition);
     }
   }
 
   async getOrders(userId?: string, guestId?: string): Promise<Order[]> {
     const whereCondition: any = {};
-    
+
     if (userId) {
       whereCondition.userId = userId;
     } else if (guestId) {
       whereCondition.guestId = guestId;
     }
 
-    return await this.orderRepository.find({
-      where: whereCondition,
-      relations: ['items', 'statusHistory'],
-      order: { createdAt: 'DESC' }
-    });
+    // Create cache key
+    const cacheKey = `orders:${userId || guestId}:${JSON.stringify(
+      whereCondition
+    )}`;
+
+    // Use cache wrapper for order retrieval (5-minute TTL)
+    return await cacheService.cacheWrapper(
+      cacheKey,
+      async () => {
+        return await this.orderRepository.find({
+          where: whereCondition,
+          relations: ["items", "statusHistory"],
+          order: { createdAt: "DESC" },
+        });
+      },
+      { ttl: 300 } // 5 minutes
+    );
   }
 
   async getOrderById(orderId: string): Promise<Order | null> {
-    return await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['items', 'statusHistory']
-    });
+    // Create cache key
+    const cacheKey = `order:${orderId}`;
+
+    // Use cache wrapper for single order retrieval (10-minute TTL)
+    return await cacheService.cacheWrapper(
+      cacheKey,
+      async () => {
+        return await this.orderRepository.findOne({
+          where: { id: orderId },
+          relations: ["items", "statusHistory"],
+        });
+      },
+      { ttl: 600 } // 10 minutes
+    );
   }
 
-  async updateOrderStatus(orderId: string, status: ORDER_STATUS, changedBy?: string, notes?: string): Promise<Order> {
+  async updateOrderStatus(
+    orderId: string,
+    status: ORDER_STATUS,
+    changedBy?: string,
+    notes?: string
+  ): Promise<Order> {
     const order = await this.orderRepository.findOne({
-      where: { id: orderId }
+      where: { id: orderId },
     });
 
     if (!order) {
-      throw new Error('Order not found');
+      throw new Error("Order not found");
     }
 
     const previousStatus = order.status;
@@ -485,40 +952,178 @@ export class CheckoutService {
       previousStatus,
       changedBy,
       notes,
-      notificationSent: false
+      notificationSent: false,
     });
 
     await this.orderStatusHistoryRepository.save(statusHistory);
-    return await this.orderRepository.save(order);
+    const updatedOrder = await this.orderRepository.save(order);
+
+    // Invalidate related caches
+    await cacheService.delete(`order:${orderId}`);
+    if (order.userId) {
+      await cacheService.deletePattern(`orders:${order.userId}:*`);
+    } else if (order.guestId) {
+      await cacheService.deletePattern(`orders:${order.guestId}:*`);
+    }
+
+    return updatedOrder;
   }
 
-  private async getAvailableShippingMethods(): Promise<ShippingMethodResponseDto[]> {
+  private async getAvailableShippingMethods(): Promise<
+    ShippingMethodResponseDto[]
+  > {
     // Mock shipping methods - in production, integrate with shipping providers
     return [
       {
-        id: 'standard',
-        name: 'Standard Shipping',
-        description: '5-7 business days',
+        id: "standard",
+        name: "Standard Shipping",
+        description: "5-7 business days",
         price: 9.99,
         estimatedDays: 7,
-        carrier: 'USPS'
+        carrier: "USPS",
       },
       {
-        id: 'express',
-        name: 'Express Shipping',
-        description: '2-3 business days',
+        id: "express",
+        name: "Express Shipping",
+        description: "2-3 business days",
         price: 19.99,
         estimatedDays: 3,
-        carrier: 'FedEx'
+        carrier: "FedEx",
       },
       {
-        id: 'overnight',
-        name: 'Overnight Shipping',
-        description: 'Next business day',
+        id: "overnight",
+        name: "Overnight Shipping",
+        description: "Next business day",
         price: 39.99,
         estimatedDays: 1,
-        carrier: 'UPS'
-      }
+        carrier: "UPS",
+      },
     ];
   }
-} 
+
+  // Get user addresses for checkout
+  async getUserAddresses(
+    userId: string
+  ): Promise<{ shipping: Address[]; billing: Address[] }> {
+    try {
+      const addresses = await this.addressRepository.find({
+        where: { userId, status: ADDRESS_STATUS.ACTIVE },
+        order: { isDefault: "DESC", createdAt: "DESC" },
+      });
+
+      const shippingAddresses = addresses.filter(
+        (addr) =>
+          addr.type === ADDRESS_TYPE.SHIPPING || addr.type === ADDRESS_TYPE.BOTH
+      );
+
+      const billingAddresses = addresses.filter(
+        (addr) =>
+          addr.type === ADDRESS_TYPE.BILLING || addr.type === ADDRESS_TYPE.BOTH
+      );
+
+      return { shipping: shippingAddresses, billing: billingAddresses };
+    } catch (error: any) {
+      console.error("Get user addresses error:", error);
+      throw new Error("Failed to get user addresses");
+    }
+  }
+
+  // Get default addresses for user
+  async getDefaultAddresses(
+    userId: string
+  ): Promise<{ shipping?: Address; billing?: Address }> {
+    try {
+      const defaultShipping = await this.addressRepository.findOne({
+        where: {
+          userId,
+          type: ADDRESS_TYPE.SHIPPING,
+          isDefault: true,
+          status: ADDRESS_STATUS.ACTIVE,
+        },
+      });
+
+      const defaultBilling = await this.addressRepository.findOne({
+        where: {
+          userId,
+          type: ADDRESS_TYPE.BILLING,
+          isDefault: true,
+          status: ADDRESS_STATUS.ACTIVE,
+        },
+      });
+
+      return {
+        shipping: defaultShipping || undefined,
+        billing: defaultBilling || undefined,
+      };
+    } catch (error: any) {
+      console.error("Get default addresses error:", error);
+      throw new Error("Failed to get default addresses");
+    }
+  }
+
+  // Validate address belongs to user
+  async validateUserAddress(
+    userId: string,
+    addressId: string
+  ): Promise<Address> {
+    try {
+      const address = await this.addressRepository.findOne({
+        where: { id: addressId, userId, status: ADDRESS_STATUS.ACTIVE },
+      });
+
+      if (!address) {
+        throw new Error("Address not found or does not belong to user");
+      }
+
+      return address;
+    } catch (error: any) {
+      console.error("Validate user address error:", error);
+      throw new Error(error.message || "Failed to validate address");
+    }
+  }
+
+  private async getUserCartItems(
+    userId?: string,
+    guestId?: string
+  ): Promise<any[]> {
+    console.log("Userr ==> ", userId);
+    try {
+      let cartItems: any[] = [];
+
+      if (userId) {
+        // Get cart items for registered user
+        const cart = await this.cartRepository.find({
+          where: { userId },
+          relations: ["product", "product.thumbnailImg", "product.categories"],
+        });
+
+        cartItems = cart.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          product: item.product,
+          selectedVariants: item.variants || [],
+        }));
+      } else if (guestId) {
+        // Get cart items for guest user
+        const cart = await this.cartRepository.find({
+          where: { guestId },
+          relations: ["product", "product.thumbnailImg", "product.categories"],
+        });
+
+        cartItems = cart.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          product: item.product,
+          selectedVariants: item.variants || [],
+        }));
+      }
+
+      return cartItems;
+    } catch (error) {
+      console.error("Error getting user cart items:", error);
+      throw new Error("Failed to retrieve cart items");
+    }
+  }
+}

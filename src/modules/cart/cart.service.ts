@@ -9,6 +9,7 @@ import { CartResponseDto } from "./dto/cart-response.dto";
 import { GetCartQueryDto } from "./dto/get-cart-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
 import { cuid } from "../../libs/cuid";
+import { cacheService } from "../../common/services/cache.service";
 
 export class CartService {
   private cartRepository: Repository<Cart>;
@@ -64,7 +65,7 @@ export class CartService {
         return { isValid: false, message: "Product has no attributes defined" };
       }
 
-      let variantPrice = 0;
+      let selectedVariantPrice: number | undefined = undefined;
       let variantQuantity: number | undefined = undefined;
 
       for (const variant of variants) {
@@ -106,9 +107,9 @@ export class CartService {
           };
         }
 
-        // Add variant price if available
+        // Use the price of the selected variant (attribute value)
         if (attributeValue.price) {
-          variantPrice += Number(attributeValue.price);
+          selectedVariantPrice = Number(attributeValue.price);
         }
 
         // Set variant quantity if available
@@ -127,7 +128,7 @@ export class CartService {
         }
       }
 
-      return { isValid: true, variantPrice, variantQuantity };
+      return { isValid: true, variantPrice: selectedVariantPrice, variantQuantity };
     } catch (error) {
       return { isValid: false, message: "Error validating variants" };
     }
@@ -171,12 +172,15 @@ export class CartService {
       const userId = user?.id || null;
       const guestId = user ? null : data.guestId || cuid();
 
-      // Calculate final price (product price + variant price)
-      const basePrice = Number(
-        data.price || product.salePrice || product.regularPrice || 0
-      );
-      const variantPrice = Number(variantValidation.variantPrice || 0);
-      const finalPrice = basePrice + variantPrice;
+      // Calculate final price (unit price)
+      let finalPrice: number;
+      if (data.variants && data.variants.length > 0) {
+        // For variant products, use the selected variant's price
+        finalPrice = Number(variantValidation.variantPrice || 0);
+      } else {
+        // For non-variant products, use the product's price
+        finalPrice = Number(data.price || product.salePrice || product.regularPrice || 0);
+      }
 
       // Check if item already exists in cart (including variants)
       const whereCondition: any = {
@@ -218,7 +222,7 @@ export class CartService {
         const newQuantity = existingCartItem.quantity + (data.quantity || 1);
         existingCartItem.quantity = newQuantity;
         if (data.variants) {
-          existingCartItem.variants = data.variants;
+          existingCartItem.variants = data.variants as any;
         }
         existingCartItem.price = finalPrice;
 
@@ -336,11 +340,12 @@ export class CartService {
           where: { id: cartItem.productId },
         });
         if (product) {
-          const basePrice = Number(
-            data.price || product.salePrice || product.regularPrice || 0
-          );
-          const variantPrice = Number(variantValidation.variantPrice || 0);
-          const finalPrice = basePrice + variantPrice;
+          let finalPrice: number;
+          if (data.variants && data.variants.length > 0) {
+            finalPrice = Number(variantValidation.variantPrice || 0);
+          } else {
+            finalPrice = Number(data.price || product.salePrice || product.regularPrice || 0);
+          }
           cartItem.price = finalPrice;
         }
       }
@@ -349,7 +354,7 @@ export class CartService {
         cartItem.quantity = data.quantity;
       }
       if (data.variants !== undefined) {
-        cartItem.variants = data.variants;
+        cartItem.variants = data.variants as any;
       }
       if (data.price !== undefined && !data.variants) {
         cartItem.price = data.price;
@@ -424,6 +429,13 @@ export class CartService {
 
       params.push(new Date());
       await this.cartRepository.query(updateQuery, params);
+      
+      // Invalidate cart cache
+      if (userId) {
+        await cacheService.deletePattern(`cart:user:${userId}:*`);
+      } else if (guestId) {
+        await cacheService.deletePattern(`cart:guest:${guestId}:*`);
+      }
     } catch (error: any) {
       throw new Error(error.message);
     }

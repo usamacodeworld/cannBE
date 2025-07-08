@@ -1,5 +1,9 @@
-import { ORDER_STATUS, PAYMENT_STATUS, PAYMENT_METHOD } from '../entities/order.entity';
-import { COUPON_TYPE } from '../entities/coupon.entity';
+import {
+  ORDER_STATUS,
+  PAYMENT_STATUS,
+  PAYMENT_METHOD,
+} from "../entities/order.entity";
+import { COUPON_TYPE } from "../entities/coupon.entity";
 
 export class CheckoutSummaryDto {
   subtotal: number;
@@ -22,7 +26,7 @@ export class CheckoutItemResponseDto {
   selectedVariants?: Array<{
     attributeName: string;
     attributeValue: string;
-    additionalPrice: number;
+    attributePrice: number;
   }>;
   thumbnailImage?: string;
 }
@@ -39,6 +43,9 @@ export class ShippingMethodResponseDto {
 export class CheckoutInitiateResponseDto {
   checkoutId: string;
   summary: CheckoutSummaryDto;
+  items: CheckoutItemResponseDto[];
+  shippingAddress?: any;
+  billingAddress?: any;
   availablePaymentMethods: PAYMENT_METHOD[];
   availableShippingMethods: ShippingMethodResponseDto[];
 }
@@ -81,7 +88,7 @@ export class OrderItemResponseDto {
   selectedVariants?: Array<{
     attributeName: string;
     attributeValue: string;
-    additionalPrice: number;
+    attributePrice: number;
   }>;
 }
 
@@ -99,4 +106,4 @@ export class OrderConfirmationResponseDto {
   paymentReceipt: PaymentReceiptDto;
   emailSent: boolean;
   invoiceUrl?: string;
-} 
+}

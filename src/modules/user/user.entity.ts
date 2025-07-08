@@ -5,11 +5,13 @@ import {
   BeforeUpdate,
   ManyToMany,
   JoinTable,
+  OneToMany,
 } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import { BaseEntity } from "../../common/entities/base.entity";
 import { USER_TYPE } from "../../constants/user";
 import { Role } from "../role/entities/role.entity";
+import { Address } from "../address/address.entity";
 
 @Entity("users")
 export class User extends BaseEntity {
@@ -53,6 +55,9 @@ export class User extends BaseEntity {
     inverseJoinColumn: { name: "roleId" },
   })
   roles?: Role[];
+
+  @OneToMany(() => Address, address => address.user)
+  addresses?: Address[];
 
   @BeforeInsert()
   @BeforeUpdate()

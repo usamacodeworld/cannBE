@@ -5,6 +5,7 @@ import { MediaFile } from '../media/media-file.entity';
 import { GetHomeDataQueryDto } from './dto/get-home-data-query.dto';
 import { HomeDataResponseDto } from './dto/home-data-response.dto';
 import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
+import { cacheService } from '../../common/services/cache.service';
 
 export class HomeService {
   private productRepository: Repository<Product>;
@@ -54,14 +55,21 @@ export class HomeService {
   }
 
   async getHomeData(query: GetHomeDataQueryDto): Promise<HomeDataResponseDto> {
-    try {
-      const {
-        featuredProductsLimit = 8,
-        newArrivalsLimit = 6,
-        popularCategoriesLimit = 6,
-        trendingProductsLimit = 4,
-        dealsLimit = 4
-      } = query;
+    // Create cache key based on query parameters
+    const cacheKey = `home:data:${JSON.stringify(query)}`;
+
+    // Use cache wrapper for automatic caching (30 minutes TTL)
+    return await cacheService.cacheWrapper(
+      cacheKey,
+      async () => {
+        try {
+          const {
+            featuredProductsLimit = 8,
+            newArrivalsLimit = 6,
+            popularCategoriesLimit = 6,
+            trendingProductsLimit = 4,
+            dealsLimit = 4
+          } = query;
 
       // Get featured products using TypeORM
       const featuredProducts = await this.productRepository
@@ -233,6 +241,9 @@ export class HomeService {
     } catch (error: any) {
       throw new Error(`Error fetching home data: ${error.message}`);
     }
+      },
+      { ttl: 1800 } // 30 minutes cache
+    );
   }
 
   async getFeaturedProducts(query: GetHomeDataQueryDto): Promise<PaginatedResponseDto<any>> {

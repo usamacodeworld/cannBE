@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, OneToMany, JoinColumn, ManyToMany, JoinTable
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { Category } from '../../category/category.entity';
 import { MediaFile } from '../../media/media-file.entity';
+import { Attribute } from '../../attributes/entities/attribute.entity';
 
 @Entity('products')
 export class Product extends BaseEntity {
@@ -109,4 +110,7 @@ export class Product extends BaseEntity {
 
   @Column({ nullable: true })
   externalLinkBtn: string;
+
+  @OneToMany(() => Attribute, attribute => attribute.product)
+  attributes?: Attribute[];
 } 

@@ -1,0 +1,80 @@
+# Copy this content to a .env file in your project root
+
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=your_password
+DB_DATABASE=cannbe_db
+
+# Redis Configuration
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key_here
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_EXPIRES_IN=30d
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+
+# Authorize.net Configuration (Sandbox)
+AUTHORIZE_NET_API_LOGIN_ID=5KP3u95bQpv
+AUTHORIZE_NET_TRANSACTION_KEY=346HZ32z3fP4hTG2
+AUTHORIZE_NET_SIGNATURE_KEY=Simon
+AUTHORIZE_NET_ENVIRONMENT=sandbox
+AUTHORIZE_NET_WEBHOOK_SECRET=your_authorize_net_webhook_secret
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret
+
+# PayPal Configuration
+PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret
+PAYPAL_ENVIRONMENT=sandbox
+
+# Email Configuration
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_email_app_password
+EMAIL_FROM=noreply@cannbe.com
+
+# USPS Shipping Configuration
+USPS_USER_ID=your_usps_user_id
+USPS_API_URL=http://production.shippingapis.com/ShippingAPI.dll
+
+# FedEx Shipping Configuration
+FEDEX_KEY=your_fedex_key
+FEDEX_PASSWORD=your_fedex_password
+FEDEX_ACCOUNT_NUMBER=your_fedex_account_number
+FEDEX_METER_NUMBER=your_fedex_meter_number
+FEDEX_API_URL=https://apis-sandbox.fedex.com
+
+# TaxJar Configuration
+TAXJAR_API_KEY=your_taxjar_api_key
+TAXJAR_API_URL=https://api.taxjar.com
+
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=your_s3_bucket_name
+
+# Application Configuration
+APP_NAME=CannBE
+APP_VERSION=1.0.0
+LOG_LEVEL=info
+CORS_ORIGIN=http://localhost:3000
+
+# Security Configuration
+BCRYPT_ROUNDS=12
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100 
