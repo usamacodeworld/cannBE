@@ -8,7 +8,7 @@ export interface SelectedVariant {
   attributeValueId: string;
   attributeName: string;
   attributeValue: string;
-  additionalPrice: number;
+  attributePrice: number;
 }
 
 @Entity('order_items')

@@ -15,6 +15,7 @@ export class AddressResponseDto {
   postalCode: string;
   country: string;
   phone?: string;
+  email?: string;
   isDefault: boolean;
   notes?: string;
   createdAt: Date;

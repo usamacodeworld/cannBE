@@ -116,7 +116,7 @@ export class CheckoutService {
 
       // Get cart items from user's cart automatically
       const cartItems = await this.getUserCartItems(data.userId, data.guestId);
-
+      // console.log("User Carts===> ", cartItems);
       if (!cartItems || cartItems.length === 0) {
         throw new Error(
           "Cart is empty. Please add items to cart before checkout."
@@ -125,7 +125,7 @@ export class CheckoutService {
 
       // Validate cart items
       const validatedItems = await this.validateCartItems(cartItems);
-
+      console.log("validatedItems===> ", validatedItems);
       // Calculate summary
       const summary = await this.calculateSummary(validatedItems);
 
@@ -404,11 +404,10 @@ export class CheckoutService {
           estimatedDays: 7,
         };
 
-        // Process payment first
         const paymentRequest = {
           amount: session.summary.totalAmount,
           currency: "USD",
-          paymentMethod: data.paymentMethod,
+          paymentMethod: data.paymentMethod || PAYMENT_METHOD.CREDIT_CARD,
           paymentData: {
             cardNumber: data.paymentData?.cardNumber,
             expiryMonth: data.paymentData?.expiryMonth,
@@ -416,27 +415,45 @@ export class CheckoutService {
             cvv: data.paymentData?.cvv,
             cardholderName: data.paymentData?.cardholderName,
             billingAddress: billingAddress,
-            paymentMethodId: data.paymentData?.paymentMethodId,
           },
           orderId: orderNumber,
           orderNumber,
-          // customerEmail: data.customerInfo.email,
-          // customerName: `${data.customerInfo.firstName} ${data.customerInfo.lastName}`,
-          customerEmail: "test@test.com",
-          customerName: `Test Name`,
+          customerEmail: billingAddress.email,
+          customerName: "John Doe",
           description: `Order ${orderNumber}`,
         };
 
-        // const paymentResponse = await paymentService.processPayment(
-        //   paymentRequest
-        // );
+        // Process payment first
+        // const paymentRequest = {
+        //   amount: session.summary.totalAmount,
+        //   currency: "USD",
+        //   paymentMethod: data.paymentMethod,
+        //   paymentData: {
+        //     cardNumber: data.paymentData?.cardNumber,
+        //     expiryMonth: data.paymentData?.expiryMonth,
+        //     expiryYear: data.paymentData?.expiryYear,
+        //     cvv: data.paymentData?.cvv,
+        //     cardholderName: data.paymentData?.cardholderName,
+        //     billingAddress: billingAddress,
+        //     paymentMethodId: data.paymentData?.paymentMethodId,
+        //   },
+        //   orderId: orderNumber,
+        //   orderNumber,
+        //   customerEmail: data.customerInfo.email,
+        //   customerName: `${data.customerInfo.firstName} ${data.customerInfo.lastName}`,
+        //   description: `Order ${orderNumber}`,
+        // };
 
-        // if (
-        //   !paymentResponse.success &&
-        //   paymentResponse.paymentStatus !== PAYMENT_STATUS.PENDING
-        // ) {
-        //   throw new Error(paymentResponse.error || "Payment processing failed");
-        // }
+        const paymentResponse = await paymentService.processPayment(
+          paymentRequest
+        );
+
+        if (
+          !paymentResponse.success &&
+          paymentResponse.paymentStatus !== PAYMENT_STATUS.PENDING
+        ) {
+          throw new Error(paymentResponse.error || "Payment processing failed");
+        }
 
         // Create order
         const order = manager.create(Order, {
@@ -449,30 +466,19 @@ export class CheckoutService {
           shippingAmount: session.summary.shippingAmount,
           discountAmount: session.summary.discountAmount,
           totalAmount: session.summary.totalAmount,
-          // paymentStatus: paymentResponse.paymentStatus,
-          paymentStatus: PAYMENT_STATUS.AUTHORIZED,
+          paymentStatus: paymentResponse.paymentStatus,
           paymentMethod: data.paymentMethod,
-          // paymentTransactionId: paymentResponse.transactionId,
-          paymentTransactionId: "Test Id",
-          // paymentGatewayResponse: JSON.stringify(
-          //   paymentResponse.gatewayResponse
-          // ),
-          paymentGatewayResponse: JSON.stringify({
-            success: true,
-            transactionId: "12345",
-            paymentStatus: "authorized",
-          }),
+          paymentTransactionId: paymentResponse.transactionId,
+          paymentGatewayResponse: JSON.stringify(
+            paymentResponse.gatewayResponse
+          ),
           shippingAddress: shippingAddress,
           billingAddress: billingAddress,
           shippingMethod: shippingMethod.name,
-          // customerEmail: data.customerInfo.email,
-          // customerFirstName: data.customerInfo.firstName,
-          // customerLastName: data.customerInfo.lastName,
-          // customerPhone: data.customerInfo.phone,
-          customerEmail: "test@test.com",
-          customerFirstName: `Test Name`,
-          customerLastName: `Test Name`,
-          customerPhone: "123456789",
+          customerEmail: billingAddress.email,
+          customerFirstName: billingAddress.firstName,
+          customerLastName: billingAddress.lastName,
+          customerPhone: billingAddress.phone,
           notes: data.notes,
           couponCode: data.couponCode,
         });
@@ -579,19 +585,21 @@ export class CheckoutService {
         }
 
         // Send confirmation email
-        // const emailData = {
-        //   order: savedOrder,
-        //   customerName: `${data.customerInfo.firstName} ${data.customerInfo.lastName}`,
-        //   customerEmail: data.customerInfo.email,
-        //   orderNumber,
-        //   totalAmount: session.summary.totalAmount,
-        //   items: orderItems,
-        //   shippingAddress: shippingAddress,
-        //   trackingNumber,
-        //   estimatedDelivery: new Date(Date.now() + shippingMethod.estimatedDays * 24 * 60 * 60 * 1000)
-        // };
+        const emailData = {
+          order: savedOrder,
+          customerName: `${billingAddress.firstName} ${billingAddress.lastName}`,
+          customerEmail: billingAddress.email,
+          orderNumber,
+          totalAmount: session.summary.totalAmount,
+          items: orderItems,
+          shippingAddress: shippingAddress,
+          trackingNumber,
+          estimatedDelivery: new Date(
+            Date.now() + shippingMethod.estimatedDays * 24 * 60 * 60 * 1000
+          ),
+        };
 
-        // const emailSent = await emailService.sendOrderConfirmation(emailData);
+        const emailSent = await emailService.sendOrderConfirmation(emailData);
 
         // Prepare response
         const response: OrderConfirmationResponseDto = {
@@ -625,7 +633,7 @@ export class CheckoutService {
             currency: "USD",
             status: savedOrder.paymentStatus,
           },
-          emailSent: true,
+          emailSent: emailSent,
           invoiceUrl: undefined,
         };
 
@@ -643,6 +651,7 @@ export class CheckoutService {
     for (const item of cartItems) {
       const product = await this.productRepository.findOne({
         where: { id: item.productId },
+        relations: ["attributes", "attributes.values"], // Ensure attribute values are loaded
       });
 
       if (!product) {
@@ -659,10 +668,31 @@ export class CheckoutService {
         throw new Error(`Insufficient stock for product ${product.name}`);
       }
 
+      let unitPrice = product.salePrice || product.regularPrice || 0;
+
+      // If item has variants, get the price from the selected attribute value
+      if (item.selectedVariants && item.selectedVariants.length > 0) {
+        console.log("Yes found ==> ", item);
+        for (const variant of item.selectedVariants) {
+          console.log("product attribute ==> ", product.attributes);
+          for (const attr of product.attributes || []) {
+            const attrValue = (attr.values || []).find(
+              (val: any) => val.id === variant.attributeValueId
+            );
+            console.log("Attribute value ==> ", attrValue);
+            if (attrValue && attrValue.price) {
+              console.log("Price Found ==> ", attrValue.price);
+              unitPrice = Number(attrValue.price);
+              break;
+            }
+          }
+        }
+      }
+
       validatedItems.push({
         ...item,
         product,
-        unitPrice: product.salePrice || product.regularPrice || 0,
+        unitPrice,
       });
     }
 

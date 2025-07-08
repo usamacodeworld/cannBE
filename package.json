@@ -16,6 +16,11 @@
     "seed:list": "ts-node src/scripts/list-seeders.ts",
     "seed:countries": "ts-node scripts/seed-countries.ts",
     "test:s3": "ts-node scripts/test-s3.ts",
+    "test:authorizenet": "ts-node scripts/test-authorizenet.ts",
+    "test:authorizenet:minimal": "ts-node scripts/test-authorizenet-minimal.ts",
+    "example:authorizenet": "ts-node scripts/authorizenet-example.ts",
+    "create-order:authorizenet": "ts-node scripts/create-order-with-authorizenet.ts",
+    "checkout-controller:authorizenet": "ts-node scripts/checkout-controller-example.ts",
     "dev:cleanup": "ts-node scripts/dev-cleanup-before-migrate.ts",
     "redis": "ts-node src/scripts/redis-management.ts"
   },
@@ -43,6 +48,7 @@
     "@types/redis": "^4.0.11",
     "@types/stripe": "^8.0.417",
     "@types/uuid": "^10.0.0",
+    "authorizenet": "^1.0.10",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
@@ -70,6 +76,7 @@
     "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "@types/authorizenet": "^1.0.2",
     "@types/slug": "^5.0.9",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0"

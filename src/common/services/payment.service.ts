@@ -1,4 +1,7 @@
 import axios from 'axios';
+const ApiContracts = require('authorizenet').APIContracts;
+const ApiControllers = require('authorizenet').APIControllers;
+const SDKConstants = require('authorizenet').Constants;
 import { paymentConfig } from '../../config/payment.config';
 import { PAYMENT_METHOD, PAYMENT_STATUS } from '../../modules/checkout/entities/order.entity';
 
@@ -81,89 +84,155 @@ export class PaymentService {
   }
 
   private async processAuthorizeNetPayment(request: PaymentRequest): Promise<PaymentResponse> {
-    try {
-      const payload = {
-        createTransactionRequest: {
-          merchantAuthentication: {
-            name: paymentConfig.authorizeNet.apiLoginId,
-            transactionKey: paymentConfig.authorizeNet.transactionKey
-          },
-          refId: request.orderNumber,
-          transactionRequest: {
-            transactionType: 'authCaptureTransaction',
-            amount: request.amount.toFixed(2),
-            currencyCode: request.currency,
-            payment: {
-              creditCard: {
-                cardNumber: request.paymentData.cardNumber,
-                expirationDate: `${request.paymentData.expiryMonth}/${request.paymentData.expiryYear}`,
-                cardCode: request.paymentData.cvv
-              }
-            },
-            billTo: {
-              firstName: request.customerName.split(' ')[0],
-              lastName: request.customerName.split(' ').slice(1).join(' '),
-              email: request.customerEmail,
-              address: request.paymentData.billingAddress?.addressLine1 || '',
-              city: request.paymentData.billingAddress?.city || '',
-              state: request.paymentData.billingAddress?.state || '',
-              zip: request.paymentData.billingAddress?.postalCode || '',
-              country: request.paymentData.billingAddress?.country || ''
-            },
-            order: {
-              invoiceNumber: request.orderNumber,
-              description: request.description || `Order ${request.orderNumber}`
-            },
-            customer: {
-              email: request.customerEmail
-            },
-            transactionSettings: {
-              setting: [
-                {
-                  settingName: 'emailCustomer',
-                  settingValue: 'true'
-                },
-                {
-                  settingName: 'merchantEmail',
-                  settingValue: paymentConfig.email.from
-                }
-              ]
-            }
+    return new Promise((resolve) => {
+      try {
+        // Create merchant authentication
+        const merchantAuthenticationType = new ApiContracts.MerchantAuthenticationType();
+        merchantAuthenticationType.setName(paymentConfig.authorizeNet.apiLoginId);
+        merchantAuthenticationType.setTransactionKey(paymentConfig.authorizeNet.transactionKey);
+
+        // Create credit card
+        const creditCard = new ApiContracts.CreditCardType();
+        creditCard.setCardNumber(request.paymentData.cardNumber || '');
+        creditCard.setExpirationDate(`${request.paymentData.expiryMonth}/${request.paymentData.expiryYear}`);
+        creditCard.setCardCode(request.paymentData.cvv || '');
+
+        // Create payment type
+        const paymentType = new ApiContracts.PaymentType();
+        paymentType.setCreditCard(creditCard);
+
+        // Create order details
+        const orderDetails = new ApiContracts.OrderType();
+        orderDetails.setInvoiceNumber(request.orderNumber);
+        orderDetails.setDescription(request.description || `Order ${request.orderNumber}`);
+
+        // Create billing address
+        const billTo = new ApiContracts.CustomerAddressType();
+        const nameParts = request.customerName.split(' ');
+        billTo.setFirstName(nameParts[0] || '');
+        billTo.setLastName(nameParts.slice(1).join(' ') || '');
+        billTo.setAddress(request.paymentData.billingAddress?.addressLine1 || '');
+        billTo.setCity(request.paymentData.billingAddress?.city || '');
+        billTo.setState(request.paymentData.billingAddress?.state || '');
+        billTo.setZip(request.paymentData.billingAddress?.postalCode || '');
+        billTo.setCountry(request.paymentData.billingAddress?.country || '');
+
+        // Create transaction settings
+        const transactionSetting1 = new ApiContracts.SettingType();
+        transactionSetting1.setSettingName('duplicateWindow');
+        transactionSetting1.setSettingValue('120');
+
+        const transactionSetting2 = new ApiContracts.SettingType();
+        transactionSetting2.setSettingName('emailCustomer');
+        transactionSetting2.setSettingValue('true');
+
+        const transactionSetting3 = new ApiContracts.SettingType();
+        transactionSetting3.setSettingName('merchantEmail');
+        transactionSetting3.setSettingValue(paymentConfig.email.from);
+
+        const transactionSettingList = [];
+        transactionSettingList.push(transactionSetting1);
+        transactionSettingList.push(transactionSetting2);
+        transactionSettingList.push(transactionSetting3);
+
+        const transactionSettings = new ApiContracts.ArrayOfSetting();
+        transactionSettings.setSetting(transactionSettingList);
+
+        // Create customer data
+        const customerData = new ApiContracts.CustomerDataType();
+        customerData.setEmail(request.customerEmail);
+
+        // Create transaction request
+        const transactionRequestType = new ApiContracts.TransactionRequestType();
+        transactionRequestType.setTransactionType(ApiContracts.TransactionTypeEnum.AUTHCAPTURETRANSACTION);
+        transactionRequestType.setPayment(paymentType);
+        transactionRequestType.setAmount(request.amount.toFixed(2));
+        transactionRequestType.setOrder(orderDetails);
+        transactionRequestType.setBillTo(billTo);
+        transactionRequestType.setCustomer(customerData);
+        transactionRequestType.setTransactionSettings(transactionSettings);
+
+        // Create the request
+        const createRequest = new ApiContracts.CreateTransactionRequest();
+        createRequest.setMerchantAuthentication(merchantAuthenticationType);
+        createRequest.setTransactionRequest(transactionRequestType);
+
+        // Create controller
+        const ctrl = new ApiControllers.CreateTransactionController(createRequest.getJSON());
+        
+        // Set environment based on config
+        if (paymentConfig.authorizeNet.environment === 'production') {
+          ctrl.setEnvironment(SDKConstants.endpoint.production);
+        } else {
+          ctrl.setEnvironment(SDKConstants.endpoint.sandbox);
+        }
+
+        // Execute the transaction
+        ctrl.execute(function() {
+          const apiResponse = ctrl.getResponse();
+          let response: any = null;
+
+          if (apiResponse != null) {
+            response = new ApiContracts.CreateTransactionResponse(apiResponse);
           }
-        }
-      };
 
-      const response = await axios.post(this.authorizeNetApiUrl, payload, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const result = response.data.createTransactionResponse;
-
-      if (result.responseCode === '1') {
-        return {
-          success: true,
-          transactionId: result.transResponse.transId,
-          paymentStatus: PAYMENT_STATUS.CAPTURED,
-          gatewayResponse: result
-        };
-      } else {
-        return {
+          if (response != null) {
+            if (response.getMessages().getResultCode() == ApiContracts.MessageTypeEnum.OK) {
+              if (response.getTransactionResponse().getMessages() != null) {
+                resolve({
+                  success: true,
+                  transactionId: response.getTransactionResponse().getTransId(),
+                  paymentStatus: PAYMENT_STATUS.CAPTURED,
+                  gatewayResponse: response
+                });
+              } else {
+                // Failed transaction
+                const errorMessage = response.getTransactionResponse().getErrors() != null
+                  ? response.getTransactionResponse().getErrors().getError()[0].getErrorText()
+                  : 'Payment failed';
+                
+                resolve({
+                  success: false,
+                  paymentStatus: PAYMENT_STATUS.FAILED,
+                  error: errorMessage,
+                  gatewayResponse: response
+                });
+              }
+            } else {
+              // Failed transaction
+              let errorMessage = 'Payment failed';
+              if (response.getTransactionResponse() != null && response.getTransactionResponse().getErrors() != null) {
+                errorMessage = response.getTransactionResponse().getErrors().getError()[0].getErrorText();
+              } else {
+                errorMessage = response.getMessages().getMessage()[0].getText();
+              }
+              
+              resolve({
+                success: false,
+                paymentStatus: PAYMENT_STATUS.FAILED,
+                error: errorMessage,
+                gatewayResponse: response
+              });
+            }
+          } else {
+            const apiError = ctrl.getError();
+            console.error('Authorize.net API Error:', apiError);
+            resolve({
+              success: false,
+              paymentStatus: PAYMENT_STATUS.FAILED,
+              error: 'Null response from payment gateway'
+            });
+          }
+        });
+      } catch (error: any) {
+        console.error('Authorize.net payment error:', error);
+        resolve({
           success: false,
           paymentStatus: PAYMENT_STATUS.FAILED,
-          error: result.messages?.message?.[0]?.text || 'Payment failed',
-          gatewayResponse: result
-        };
+          error: error.message || 'Payment processing failed'
+        });
       }
-    } catch (error: any) {
-      console.error('Authorize.net payment error:', error);
-      return {
-        success: false,
-        paymentStatus: PAYMENT_STATUS.FAILED,
-        error: error.response?.data?.messages?.message?.[0]?.text || error.message
-      };
-    }
+    });
   }
 
   private async processStripePayment(request: PaymentRequest): Promise<PaymentResponse> {
@@ -248,49 +317,97 @@ export class PaymentService {
   }
 
   async refundPayment(refundRequest: RefundRequest): Promise<RefundResponse> {
-    try {
-      // For Authorize.net refunds
-      const payload = {
-        createTransactionRequest: {
-          merchantAuthentication: {
-            name: paymentConfig.authorizeNet.apiLoginId,
-            transactionKey: paymentConfig.authorizeNet.transactionKey
-          },
-          refId: `refund_${refundRequest.orderId}`,
-          transactionRequest: {
-            transactionType: 'refundTransaction',
-            amount: refundRequest.amount.toFixed(2),
-            refTransId: refundRequest.transactionId
+    return new Promise((resolve) => {
+      try {
+        // Create merchant authentication
+        const merchantAuthenticationType = new ApiContracts.MerchantAuthenticationType();
+        merchantAuthenticationType.setName(paymentConfig.authorizeNet.apiLoginId);
+        merchantAuthenticationType.setTransactionKey(paymentConfig.authorizeNet.transactionKey);
+
+        // Create payment type for refund
+        const paymentType = new ApiContracts.PaymentType();
+        // For refunds, we don't need credit card details as we're refunding to the original payment method
+
+        // Create transaction request for refund
+        const transactionRequestType = new ApiContracts.TransactionRequestType();
+        transactionRequestType.setTransactionType(ApiContracts.TransactionTypeEnum.REFUNDTRANSACTION);
+        transactionRequestType.setPayment(paymentType);
+        transactionRequestType.setAmount(refundRequest.amount.toFixed(2));
+        transactionRequestType.setRefTransId(refundRequest.transactionId);
+
+        // Create the request
+        const createRequest = new ApiContracts.CreateTransactionRequest();
+        createRequest.setMerchantAuthentication(merchantAuthenticationType);
+        createRequest.setTransactionRequest(transactionRequestType);
+
+        // Create controller
+        const ctrl = new ApiControllers.CreateTransactionController(createRequest.getJSON());
+        
+        // Set environment based on config
+        if (paymentConfig.authorizeNet.environment === 'production') {
+          ctrl.setEnvironment(SDKConstants.endpoint.production);
+        } else {
+          ctrl.setEnvironment(SDKConstants.endpoint.sandbox);
+        }
+
+        // Execute the refund
+        ctrl.execute(function() {
+          const apiResponse = ctrl.getResponse();
+          let response: any = null;
+
+          if (apiResponse != null) {
+            response = new ApiContracts.CreateTransactionResponse(apiResponse);
           }
-        }
-      };
 
-      const response = await axios.post(this.authorizeNetApiUrl, payload, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const result = response.data.createTransactionResponse;
-
-      if (result.responseCode === '1') {
-        return {
-          success: true,
-          refundId: result.transResponse.transId
-        };
-      } else {
-        return {
+          if (response != null) {
+            if (response.getMessages().getResultCode() == ApiContracts.MessageTypeEnum.OK) {
+              if (response.getTransactionResponse().getMessages() != null) {
+                resolve({
+                  success: true,
+                  refundId: response.getTransactionResponse().getTransId()
+                });
+              } else {
+                // Failed refund
+                const errorMessage = response.getTransactionResponse().getErrors() != null
+                  ? response.getTransactionResponse().getErrors().getError()[0].getErrorText()
+                  : 'Refund failed';
+                
+                resolve({
+                  success: false,
+                  error: errorMessage
+                });
+              }
+            } else {
+              // Failed refund
+              let errorMessage = 'Refund failed';
+              if (response.getTransactionResponse() != null && response.getTransactionResponse().getErrors() != null) {
+                errorMessage = response.getTransactionResponse().getErrors().getError()[0].getErrorText();
+              } else {
+                errorMessage = response.getMessages().getMessage()[0].getText();
+              }
+              
+              resolve({
+                success: false,
+                error: errorMessage
+              });
+            }
+          } else {
+            const apiError = ctrl.getError();
+            console.error('Authorize.net Refund API Error:', apiError);
+            resolve({
+              success: false,
+              error: 'Null response from payment gateway'
+            });
+          }
+        });
+      } catch (error: any) {
+        console.error('Refund error:', error);
+        resolve({
           success: false,
-          error: result.messages?.message?.[0]?.text || 'Refund failed'
-        };
+          error: error.message || 'Refund processing failed'
+        });
       }
-    } catch (error: any) {
-      console.error('Refund error:', error);
-      return {
-        success: false,
-        error: error.message || 'Refund processing failed'
-      };
-    }
+    });
   }
 
   async verifyWebhook(payload: any, signature: string, gateway: 'authorizeNet' | 'stripe'): Promise<boolean> {

@@ -70,6 +70,9 @@ export class Address extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  email: string;
+
   @Column({ type: 'boolean', default: false })
   isDefault: boolean;
 

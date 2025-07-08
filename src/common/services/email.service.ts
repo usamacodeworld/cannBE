@@ -30,15 +30,32 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: paymentConfig.email.host,
-      port: paymentConfig.email.port,
-      secure: paymentConfig.email.secure,
-      auth: {
-        user: paymentConfig.email.user,
-        pass: paymentConfig.email.pass
-      }
-    });
+    if (process.env.NODE_ENV === 'development' || process.env.USE_ETHEREAL === 'true') {
+      // Use Ethereal for testing
+      nodemailer.createTestAccount().then(testAccount => {
+        this.transporter = nodemailer.createTransport({
+          host: testAccount.smtp.host,
+          port: testAccount.smtp.port,
+          secure: testAccount.smtp.secure,
+          auth: {
+            user: testAccount.user,
+            pass: testAccount.pass,
+          },
+        });
+        console.log('Ethereal test account created. Login:', testAccount.user);
+        console.log('Ethereal test account password:', testAccount.pass);
+      });
+    } else {
+      this.transporter = nodemailer.createTransport({
+        host: paymentConfig.email.host,
+        port: paymentConfig.email.port,
+        secure: paymentConfig.email.secure,
+        auth: {
+          user: paymentConfig.email.user,
+          pass: paymentConfig.email.pass
+        }
+      });
+    }
   }
 
   async sendOrderConfirmation(data: EmailData): Promise<boolean> {

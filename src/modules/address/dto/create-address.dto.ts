@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsBoolean, IsUUID, Length, IsPhoneNumber } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsUUID, Length, IsPhoneNumber, IsEmail } from 'class-validator';
 import { ADDRESS_TYPE } from '../address.entity';
 
 export class CreateAddressDto {
@@ -46,6 +46,10 @@ export class CreateAddressDto {
   @IsOptional()
   @IsPhoneNumber()
   phone?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  email?: string;
 
   @IsOptional()
   @IsBoolean()
