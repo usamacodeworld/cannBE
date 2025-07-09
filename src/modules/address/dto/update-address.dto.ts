@@ -52,7 +52,6 @@ export class UpdateAddressDto {
   country?: string;
 
   @IsOptional()
-  @IsPhoneNumber()
   phone?: string;
 
   @IsOptional()

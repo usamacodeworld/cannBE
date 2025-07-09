@@ -1,10 +1,5 @@
 import { DataSource, DataSourceOptions } from "typeorm";
-import { User } from "../modules/user/user.entity";
-import { Role } from "../modules/role/entities/role.entity";
-import { Permission } from "../modules/permissions/entities/permission.entity";
-import { Category } from "../modules/category/category.entity";
 import dotenv from "dotenv";
-import { Address } from "@/modules/address/address.entity";
 
 dotenv.config();
 
@@ -17,7 +12,25 @@ export const typeormConfig: DataSourceOptions = {
   database: process.env.DB_NAME || "cannbe",
   synchronize: process.env.NODE_ENV !== "production",
   logging: process.env.NODE_ENV !== "production",
-  entities: [User, Role, Permission, Category, Address],
+  entities: [
+    "src/modules/**/entities/*.entity.ts",
+    "src/modules/role/entities/role.entity.ts",
+    "src/modules/permissions/entities/permission.entity.ts",
+    "src/modules/user/user.entity.ts",
+    "src/modules/category/category.entity.ts",
+    "src/modules/attributes/entities/attribute.entity.ts",
+    "src/modules/attributes/entities/attribute-value.entity.ts",
+    "src/modules/products/entities/product.entity.ts",
+    "src/modules/products/entities/product-variant.entity.ts",
+    "src/modules/media/media-file.entity.ts",
+    "src/modules/cart/entities/cart.entity.ts",
+    "src/modules/checkout/entities/order.entity.ts",
+    "src/modules/checkout/entities/order-item.entity.ts",
+    "src/modules/checkout/entities/order-status-history.entity.ts",
+    "src/modules/checkout/entities/shipping-address.entity.ts",
+    "src/modules/checkout/entities/coupon.entity.ts",
+    "src/modules/address/address.entity.ts",
+  ],
   migrations: ["src/migrations/*.ts"],
   subscribers: ["src/subscribers/*.ts"],
   ssl:
@@ -27,3 +40,5 @@ export const typeormConfig: DataSourceOptions = {
         }
       : false,
 };
+
+export const dataSource = new DataSource(typeormConfig);

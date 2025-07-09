@@ -14,6 +14,84 @@ declare global {
   }
 }
 
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const header = req.headers.authorization || "";
+  const accessToken = header.split("Bearer ")[1];
+  const refreshToken = req.headers["x-refresh-token"] as string;
+
+  if (!accessToken) {
+    // No token provided, continue without authentication (guest user)
+    req.user = undefined;
+    return next();
+  }
+
+  try {
+    // Verify the access token
+    const decoded = verifyToken(accessToken);
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: decoded.id },
+      relations: ['roles', 'roles.permissions']
+    });
+
+    if (!user) {
+      // User not found, continue without authentication (guest user)
+      req.user = undefined;
+      return next();
+    }
+
+    req.user = user;
+    return next();
+  } catch (error) {
+    if (error instanceof Error && error.message === "Token expired") {
+      // Try to refresh the token if refresh token is provided
+      if (refreshToken) {
+        try {
+          const authService = new AuthService();
+          const newTokens = await authService.refreshToken(refreshToken);
+          
+          // Set new tokens in response headers
+          res.setHeader('X-New-Access-Token', newTokens.accessToken);
+          res.setHeader('X-New-Refresh-Token', newTokens.refreshToken);
+          
+          // Get user info from the new access token
+          const newDecoded = verifyToken(newTokens.accessToken);
+          const userRepository = AppDataSource.getRepository(User);
+          const user = await userRepository.findOne({
+            where: { id: newDecoded.id },
+            relations: ['roles', 'roles.permissions']
+          });
+
+          if (!user) {
+            // User not found, continue without authentication (guest user)
+            req.user = undefined;
+            return next();
+          }
+
+          req.user = user;
+          return next();
+        } catch (refreshError) {
+          // Refresh token is also invalid, continue without authentication (guest user)
+          req.user = undefined;
+          return next();
+        }
+      } else {
+        // No refresh token provided, continue without authentication (guest user)
+        req.user = undefined;
+        return next();
+      }
+    }
+    
+    if (error instanceof Error && error.message === "Invalid token") {
+      // Invalid token, continue without authentication (guest user)
+      req.user = undefined;
+      return next();
+    }
+
+    return next(error);
+  }
+};
+
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   const header = req.headers.authorization || "";
   const accessToken = header.split("Bearer ")[1];

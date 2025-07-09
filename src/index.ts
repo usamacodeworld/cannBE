@@ -6,6 +6,7 @@ import { AppDataSource } from "./config/database";
 import { redis } from "./config/redis";
 import { Router as V1Router } from "./apiV1.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
+import guestMigrationRoutes from "./modules/guest-migration/guest-migration.routes";
 import { requestLogger } from "./common/middlewares/request-logger.middleware";
 import { filtersToWhereJson } from "./common/middlewares/filtersToWhereJson";
 import qs from "qs";
@@ -24,6 +25,7 @@ app.use(requestLogger);
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/v1", V1Router);
+app.use("/api/guest-migration", guestMigrationRoutes); // Dedicated guest migration routes
 
 // Health check
 app.get("/health", (req, res) => {

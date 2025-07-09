@@ -67,7 +67,8 @@ export function checkoutController(
         const user = (req as any).user;
         const orderData = {
           ...req.body,
-          userId: user?.id
+          userId: user?.id,
+          guestId: user ? undefined : req.body.guestId
         };
         
         const result = await checkoutService.confirmOrder(orderData);
@@ -89,7 +90,20 @@ export function checkoutController(
     getOrders: async (req: Request, res: Response) => {
       try {
         const user = (req as any).user;
-        const orders = await checkoutService.getOrders(user?.id);
+        const { guestId } = req.query;
+        
+        if (!user?.id && !guestId) {
+          res.status(400).json({
+            success: false,
+            error: {
+              code: 'MISSING_IDENTIFIER',
+              message: 'Either user authentication or guestId is required'
+            }
+          });
+          return;
+        }
+        
+        const orders = await checkoutService.getOrders(user?.id, guestId as string);
         
         res.status(200).json({
           success: true,
@@ -109,7 +123,10 @@ export function checkoutController(
     getOrderById: async (req: Request, res: Response) => {
       try {
         const { id } = req.params;
-        const order = await checkoutService.getOrderById(id);
+        const user = (req as any).user;
+        const { guestId } = req.query;
+        
+        const order = await checkoutService.getOrderById(id, user?.id, guestId as string);
         
         if (!order) {
           res.status(404).json({
@@ -121,6 +138,8 @@ export function checkoutController(
           });
           return;
         }
+
+
 
         res.status(200).json({
           success: true,
@@ -137,10 +156,114 @@ export function checkoutController(
       }
     },
 
+    getCheckoutSession: async (req: Request, res: Response) => {
+      try {
+        const { checkoutId } = req.params;
+        
+        const session = await checkoutService.getCheckoutSessionWithAddresses(checkoutId);
+        
+        if (!session) {
+          res.status(404).json({
+            success: false,
+            error: {
+              code: 'SESSION_NOT_FOUND',
+              message: 'Checkout session not found or expired'
+            }
+          });
+          return;
+        }
+
+        res.status(200).json({
+          success: true,
+          data: session
+        });
+      } catch (error: any) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'GET_SESSION_FAILED',
+            message: error.message
+          }
+        });
+      }
+    },
+
+    updateCheckoutAddress: async (req: Request, res: Response) => {
+      try {
+        const { checkoutId, shippingAddress, billingAddress, billingAddressSameAsShipping } = req.body;
+        
+        const result = await checkoutService.updateCheckoutAddress(
+          checkoutId,
+          shippingAddress,
+          billingAddress,
+          billingAddressSameAsShipping
+        );
+        
+        res.status(200).json({
+          success: true,
+          data: result
+        });
+      } catch (error: any) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'UPDATE_ADDRESS_FAILED',
+            message: error.message
+          }
+        });
+      }
+    },
+
     calculateShipping: async (req: Request, res: Response) => {
       try {
         const { checkoutId, shippingAddress } = req.body;
         const shippingMethods = await checkoutService.calculateShipping(checkoutId, shippingAddress);
+
+        res.status(200).json({
+          success: true,
+          data: {
+            shippingMethods,
+            defaultMethod: 'standard'
+          }
+        });
+      } catch (error: any) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'SHIPPING_CALCULATION_FAILED',
+            message: error.message
+          }
+        });
+      }
+    },
+
+    calculateShippingWithoutSession: async (req: Request, res: Response) => {
+      try {
+        const { items, shippingAddress } = req.body;
+        
+        if (!items || !Array.isArray(items) || items.length === 0) {
+          res.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_ITEMS',
+              message: 'Items array is required and cannot be empty'
+            }
+          });
+          return;
+        }
+
+        if (!shippingAddress) {
+          res.status(400).json({
+            success: false,
+            error: {
+              code: 'MISSING_ADDRESS',
+              message: 'Shipping address is required'
+            }
+          });
+          return;
+        }
+
+        const shippingMethods = await checkoutService.calculateShippingWithoutSession(items, shippingAddress);
 
         res.status(200).json({
           success: true,

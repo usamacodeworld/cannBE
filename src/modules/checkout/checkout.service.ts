@@ -54,10 +54,51 @@ export class CheckoutService {
   private async getCheckoutSession(checkoutId: string): Promise<any | null> {
     try {
       const sessionKey = `checkout:session:${checkoutId}`;
-      return await cacheService.get(sessionKey);
+      const session = await cacheService.get(sessionKey);
+      
+      if (session) {
+        // Enrich session with address data if not already present
+        return await this.enrichSessionWithAddresses(session);
+      }
+      
+      return null;
     } catch (error) {
       console.error("Error getting checkout session:", error);
       return null;
+    }
+  }
+
+  private async enrichSessionWithAddresses(session: any): Promise<any> {
+    try {
+      // If addresses are already populated, return as is
+      if (session.shippingAddress && session.billingAddress) {
+        return session;
+      }
+
+      // Populate missing addresses
+      if (session.shippingAddressId && !session.shippingAddress && session.userId) {
+        session.shippingAddress = await this.validateUserAddress(
+          session.userId,
+          session.shippingAddressId
+        );
+      }
+
+      if (session.billingAddressId && !session.billingAddress && session.userId) {
+        session.billingAddress = await this.validateUserAddress(
+          session.userId,
+          session.billingAddressId
+        );
+      }
+
+      // If no billing address but has shipping address, use shipping as billing
+      if (!session.billingAddress && session.shippingAddress) {
+        session.billingAddress = session.shippingAddress;
+      }
+
+      return session;
+    } catch (error) {
+      console.error("Error enriching session with addresses:", error);
+      return session; // Return original session if enrichment fails
     }
   }
 
@@ -108,6 +149,76 @@ export class CheckoutService {
     this.dataSource = dataSource;
   }
 
+  async getCheckoutSessionWithAddresses(checkoutId: string): Promise<any | null> {
+    return await this.getCheckoutSession(checkoutId);
+  }
+
+  async updateCheckoutAddress(
+    checkoutId: string,
+    shippingAddress: any,
+    billingAddress?: any,
+    billingAddressSameAsShipping?: boolean
+  ): Promise<any> {
+    try {
+      // Get existing checkout session
+      const session = await this.getCheckoutSession(checkoutId);
+      if (!session) {
+        throw new Error("Checkout session not found or expired");
+      }
+
+      // Update shipping address
+      session.shippingAddress = shippingAddress;
+      session.shippingAddressId = null; // Clear address ID since we're using direct address
+
+      // Handle billing address
+      if (billingAddressSameAsShipping) {
+        session.billingAddress = shippingAddress;
+        session.billingAddressId = null;
+      } else if (billingAddress) {
+        session.billingAddress = billingAddress;
+        session.billingAddressId = null;
+      } else {
+        // Default to shipping address if no billing address provided
+        session.billingAddress = shippingAddress;
+        session.billingAddressId = null;
+      }
+
+      // Recalculate shipping and tax based on new address
+      const shippingMethods = await this.getShippingMethods(
+        shippingAddress,
+        session.items
+      );
+      const defaultShipping = shippingMethods[0];
+      const shippingAmount = defaultShipping?.price || 0;
+
+      const taxAmount = await this.calculateTaxAmount(
+        shippingAddress,
+        session.items
+      );
+
+      // Update session with new calculations
+      session.summary = await this.calculateSummary(
+        session.items,
+        session.discountAmount || 0,
+        shippingAmount,
+        taxAmount
+      );
+
+      session.updatedAt = new Date();
+
+      // Save updated session
+      await this.setCheckoutSession(checkoutId, session);
+
+      return {
+        session,
+        availableShippingMethods: shippingMethods,
+        updatedSummary: session.summary,
+      };
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to update checkout address");
+    }
+  }
+
   async initiateCheckout(
     data: CheckoutInitiateDto
   ): Promise<CheckoutInitiateResponseDto> {
@@ -156,6 +267,8 @@ export class CheckoutService {
         guestId: data.guestId,
         shippingAddressId: data.shippingAddressId,
         billingAddressId: data.billingAddressId,
+        shippingAddress: shippingAddress, // Store full address object
+        billingAddress: billingAddress,   // Store full address object
         shippingMethod: data.shippingMethod,
         paymentMethod: data.paymentMethod,
         createdAt: new Date(),
@@ -243,6 +356,54 @@ export class CheckoutService {
       };
     } catch (error: any) {
       throw new Error(error.message || "Failed to apply coupon");
+    }
+  }
+
+  async calculateShippingWithoutSession(
+    items: any[],
+    shippingAddress: any
+  ): Promise<ShippingMethodResponseDto[]> {
+    try {
+      // Convert items to shipping format
+      const shippingItems = items.map((item: any) => ({
+        weight: item.product?.weight || item.weight || 1,
+        length: item.product?.length || item.length || 10,
+        width: item.product?.width || item.width || 10,
+        height: item.product?.height || item.height || 10,
+        quantity: item.quantity,
+        description: item.product?.name || item.name || 'Product',
+      }));
+
+      const shippingRequest = {
+        fromAddress: {
+          firstName: "CannBE",
+          lastName: "Store",
+          addressLine1: "123 Business Street",
+          city: "Business City",
+          state: "CA",
+          postalCode: "90210",
+          country: "US",
+        },
+        toAddress: shippingAddress,
+        items: shippingItems,
+        weight: shippingService.calculateWeight(shippingItems),
+      };
+
+      // Get real shipping rates
+      const shippingResponse = await shippingService.getShippingRates(
+        shippingRequest
+      );
+
+      if (shippingResponse.success) {
+        return shippingResponse.methods;
+      } else {
+        // Fallback to default methods
+        return shippingService.getDefaultShippingMethods();
+      }
+    } catch (error: any) {
+      console.error("Shipping calculation error:", error);
+      // Return default shipping methods as fallback
+      return shippingService.getDefaultShippingMethods();
     }
   }
 
@@ -380,7 +541,7 @@ export class CheckoutService {
 
         // Get addresses from session or validate provided IDs
         let shippingAddress = session.shippingAddress;
-        let billingAddress = session.billingAddress;
+        let billingAddress = session.billingAddress || session.shippingAddress;
 
         if (session.shippingAddressId && !shippingAddress) {
           shippingAddress = await this.validateUserAddress(
@@ -393,6 +554,19 @@ export class CheckoutService {
           billingAddress = await this.validateUserAddress(
             data.userId!,
             session.billingAddressId
+          );
+        }
+
+        // Validate that addresses are provided
+        if (!shippingAddress) {
+          throw new Error(
+            "Shipping address is required. Please provide a shipping address before confirming the order."
+          );
+        }
+
+        if (!billingAddress) {
+          throw new Error(
+            "Billing address is required. Please provide a billing address before confirming the order."
           );
         }
 
@@ -910,7 +1084,7 @@ export class CheckoutService {
     );
   }
 
-  async getOrderById(orderId: string): Promise<Order | null> {
+  async getOrderById(orderId: string, userId?: string, guestId?: string): Promise<Order | null> {
     // Create cache key
     const cacheKey = `order:${orderId}`;
 
@@ -918,8 +1092,17 @@ export class CheckoutService {
     return await cacheService.cacheWrapper(
       cacheKey,
       async () => {
+        const whereCondition: any = { id: orderId };
+        
+        // Add user/guest validation if provided
+        if (userId) {
+          whereCondition.userId = userId;
+        } else if (guestId) {
+          whereCondition.guestId = guestId;
+        }
+        
         return await this.orderRepository.findOne({
-          where: { id: orderId },
+          where: whereCondition,
           relations: ["items", "statusHistory"],
         });
       },
