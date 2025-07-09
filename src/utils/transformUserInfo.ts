@@ -1,4 +1,4 @@
-import { USER_TYPE } from "@/constants/user";
+import { USER_TYPE } from "../constants/user";
 import { User } from "../modules/user/user.entity";
 import { Role } from "../modules/role/entities/role.entity";
 
@@ -20,8 +20,8 @@ export const transformUserInfo = (user: User): TransformUserInfoResult => {
     email: user.email,
     roles: user.roles?.map((role: Role) => ({
       id: role.id,
-      name: role.name
-    }))
+      name: role.name,
+    })),
   };
 };
 

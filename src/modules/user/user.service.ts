@@ -4,15 +4,15 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { GetUsersQueryDto } from "./dto/get-users-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
-import * as bcrypt from "bcrypt";
 import { Like } from "typeorm";
-import { USER_TYPE } from "@/constants/user";
-
-const userRepository = AppDataSource.getRepository(User);
+import { USER_TYPE } from "../../constants/user";
 
 export const createUser = async (
   createUserDto: CreateUserDto
 ): Promise<UserResponseDto> => {
+  // Get repository instance each time to ensure proper initialization
+  const userRepository = AppDataSource.getRepository(User);
+  
   // Check for existing user
   const existingUser = await userRepository.findOne({
     where: { email: createUserDto.email },
@@ -22,7 +22,12 @@ export const createUser = async (
     throw new Error("User already exists");
   }
 
-  const user = userRepository.create(createUserDto);
+  const user = userRepository.create({
+    ...createUserDto,
+    type: USER_TYPE.BUYER, // Default type for registration
+    isActive: true, // Default to active
+    emailVerified: false // Default to not verified
+  });
 
   await userRepository.save(user);
 
@@ -43,6 +48,7 @@ export const createUser = async (
 export const getUserProfile = async (
   userId: string
 ): Promise<UserResponseDto> => {
+  const userRepository = AppDataSource.getRepository(User);
   const user = await userRepository.findOne({ where: { id: userId } });
 
   if (!user) {
@@ -66,7 +72,15 @@ export const getUserProfile = async (
 export const getUsers = async (
   query: GetUsersQueryDto
 ): Promise<PaginatedResponseDto<UserResponseDto>> => {
-  const { page = 1, limit = 10, sort = 'createdAt', order = 'desc', search, accountType, emailVerified } = query;
+  const {
+    page = 1,
+    limit = 10,
+    sort = "createdAt",
+    order = "desc",
+    search,
+    accountType,
+    emailVerified,
+  } = query;
   const skip = (page - 1) * limit;
 
   // Build where conditions
@@ -90,6 +104,7 @@ export const getUsers = async (
   }
 
   // Get total count
+  const userRepository = AppDataSource.getRepository(User);
   const [users, total] = await userRepository.findAndCount({
     where: whereConditions,
     skip,
@@ -100,7 +115,7 @@ export const getUsers = async (
   });
 
   // Transform users to response DTO
-  const userDtos: UserResponseDto[] = users.map((user) => ({
+  const userDtos: UserResponseDto[] = users.map((user: User) => ({
     id: user.id,
     firstName: user.firstName,
     lastName: user.lastName,

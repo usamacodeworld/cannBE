@@ -44,7 +44,6 @@ export class CreateAddressDto {
   country: string;
 
   @IsOptional()
-  @IsPhoneNumber()
   phone?: string;
 
   @IsOptional()

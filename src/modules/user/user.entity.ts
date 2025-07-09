@@ -27,8 +27,8 @@ export class User extends BaseEntity {
   @Column({ nullable: false })
   lastName: string;
 
-  @Column()
-  userName: string;
+  @Column({ nullable: true })
+  userName?: string;
 
   @Column({ unique: true, nullable: false })
   email: string;

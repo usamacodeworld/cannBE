@@ -12,6 +12,8 @@ const router = Router();
 router.post('/login', validateDto(LoginDto), authController.login);
 router.post('/refresh-token', validateDto(RefreshTokenDto), authController.refreshToken);
 
+
+
 router.get('/admin-only', authenticate, requireAdmin, (req, res) => {
   res.json({ message: 'Admin only endpoint', user: req.user });
 });

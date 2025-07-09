@@ -15,7 +15,8 @@ import { CheckoutInitiateDto } from './dto/checkout-initiate.dto';
 import { ShippingAddressDto } from './dto/shipping-address.dto';
 import { ApplyCouponDto } from './dto/apply-coupon.dto';
 import { ConfirmOrderDto } from './dto/confirm-order.dto';
-import { authenticate } from '../auth/middlewares/auth.middleware';
+import { UpdateCheckoutAddressDto } from './dto/update-checkout-address.dto';
+import { authenticate, optionalAuth } from '../auth/middlewares/auth.middleware';
 import { paymentService } from '../../common/services/payment.service';
 import { PAYMENT_STATUS, ORDER_STATUS } from './entities/order.entity';
 
@@ -45,23 +46,31 @@ const ctrl = checkoutController(
   addressRepository
 );
 
-// Checkout process endpoints
-router.post('/initiate', authenticate, validateDto(CheckoutInitiateDto), ctrl.initiateCheckout);
+// Checkout process endpoints - Allow both authenticated and guest users
+router.post('/initiate', optionalAuth, validateDto(CheckoutInitiateDto), ctrl.initiateCheckout);
 
-router.post('/calculate-shipping', authenticate, ctrl.calculateShipping);
+router.post('/calculate-shipping', optionalAuth, ctrl.calculateShipping);
 
-router.post('/calculate-tax', authenticate, ctrl.calculateTax);
+router.post('/calculate-shipping-preview', optionalAuth, ctrl.calculateShippingWithoutSession);
 
-router.post('/apply-coupon', authenticate, validateDto(ApplyCouponDto), ctrl.applyCoupon);
+router.post('/calculate-tax', optionalAuth, ctrl.calculateTax);
 
-router.post('/confirm-order', authenticate, validateDto(ConfirmOrderDto), ctrl.confirmOrder);
+router.post('/apply-coupon', optionalAuth, validateDto(ApplyCouponDto), ctrl.applyCoupon);
 
-// Order management endpoints
-router.get('/orders', authenticate, ctrl.getOrders);
+router.post('/confirm-order', optionalAuth, validateDto(ConfirmOrderDto), ctrl.confirmOrder);
 
-router.get('/orders/:id', authenticate, ctrl.getOrderById);
+// Get checkout session data with addresses populated
+router.get('/session/:checkoutId', optionalAuth, ctrl.getCheckoutSession);
 
-// Address management endpoints for checkout
+// Update checkout address for guests
+router.put('/address', optionalAuth, validateDto(UpdateCheckoutAddressDto), ctrl.updateCheckoutAddress);
+
+// Order management endpoints - Allow both authenticated and guest users
+router.get('/orders', optionalAuth, ctrl.getOrders);
+
+router.get('/orders/:id', optionalAuth, ctrl.getOrderById);
+
+// Address management endpoints for checkout - Require authentication
 router.get('/addresses', authenticate, ctrl.getUserAddresses);
 
 router.get('/addresses/default', authenticate, ctrl.getDefaultAddresses);
