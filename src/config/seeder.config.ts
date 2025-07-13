@@ -15,6 +15,10 @@ import { OrderStatusHistory } from "../modules/checkout/entities/order-status-hi
 import { ShippingAddress } from "../modules/checkout/entities/shipping-address.entity";
 import { Coupon } from "../modules/checkout/entities/coupon.entity";
 import { Address } from "../modules/address/address.entity";
+import { Seller } from "../modules/seller/entities/seller.entity";
+import { ShippingZone } from "../modules/shipping/shipping-zone.entity";
+import { ShippingMethod } from "../modules/shipping/shipping-method.entity";
+import { ShippingRate } from "../modules/shipping/shipping-rate.entity";
 
 export const AppSeederDataSource = new DataSource({
   type: "postgres",
@@ -42,6 +46,10 @@ export const AppSeederDataSource = new DataSource({
     ShippingAddress,
     Coupon,
     Address,
+    Seller,
+    ShippingMethod,
+    ShippingZone,
+    ShippingRate,
   ],
   migrations: ["src/migrations/*.ts"],
   subscribers: [],

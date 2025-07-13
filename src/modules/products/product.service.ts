@@ -11,6 +11,7 @@ import { GetProductsQueryDto } from "./dto/get-products-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
 import slugify from "slug";
 import { MediaFile } from "../media/media-file.entity";
+import { Seller } from "../seller/entities/seller.entity";
 
 export class ProductService {
   private productRepository: Repository<Product>;
@@ -18,26 +19,47 @@ export class ProductService {
   private attributeValueRepository: Repository<AttributeValue>;
   private categoryRepository: Repository<Category>;
   private mediaRepository: Repository<MediaFile>;
+  private sellerRepository: Repository<Seller>;
 
   constructor(
     productRepository: Repository<Product>,
     attributeRepository: Repository<Attribute>,
     attributeValueRepository: Repository<AttributeValue>,
     categoryRepository: Repository<Category>,
-    mediaRepository: Repository<MediaFile>
+    mediaRepository: Repository<MediaFile>,
+    sellerRepository: Repository<Seller>
   ) {
     this.productRepository = productRepository;
     this.attributeRepository = attributeRepository;
     this.attributeValueRepository = attributeValueRepository;
     this.categoryRepository = categoryRepository;
     this.mediaRepository = mediaRepository;
+    this.sellerRepository = sellerRepository;
   }
 
   private async toProductResponse(
     product: any,
     includeRelations: boolean = false
   ): Promise<ProductResponseDto> {
-    return { ...product };
+    const response = { ...product };
+    
+    // Include seller information if available
+    if (product.seller) {
+      response.seller = {
+        id: product.seller.id,
+        businessName: product.seller.businessName,
+        businessDescription: product.seller.businessDescription,
+        businessEmail: product.seller.businessEmail,
+        businessPhone: product.seller.businessPhone,
+        businessWebsite: product.seller.businessWebsite,
+        status: product.seller.status,
+        verificationStatus: product.seller.verificationStatus,
+        rating: product.seller.rating,
+        reviewCount: product.seller.reviewCount
+      };
+    }
+    
+    return response;
   }
 
   private async generateUniqueSlug(slug: string): Promise<string> {
@@ -98,11 +120,25 @@ export class ProductService {
         }
       }
 
+      // Validate seller if provided
+      if (productData.sellerId) {
+        const seller = await this.sellerRepository.findOne({
+          where: { id: productData.sellerId }
+        });
+        if (!seller) {
+          throw new Error("Seller not found");
+        }
+        if (seller.status !== 'approved') {
+          throw new Error("Seller must be approved to create products");
+        }
+      }
+
       // Create product entity
       const product = this.productRepository.create({
         addedBy:
           user.roles && user.roles.length > 0 ? user.roles[0].name : "user",
         userId: user.id,
+        sellerId: productData.sellerId,
         name: productData.name,
         slug: uniqueSlug,
         thumbnailImgId: productData.thumbnailImgId,
@@ -373,7 +409,7 @@ export class ProductService {
   async findOne(id: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ["categories", "thumbnailImg", "photos"],
+      relations: ["categories", "thumbnailImg", "photos", "seller"],
     });
     if (!product) {
       throw new Error("Product not found");
@@ -589,10 +625,83 @@ export class ProductService {
     };
   }
 
+  async findBySellerId(
+    sellerId: string,
+    query: GetProductsQueryDto
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
+    const {
+      page = 1,
+      limit = 10,
+      sort = "updatedAt",
+      order = "desc",
+      filters = {},
+    } = query;
+    const skip = (page - 1) * limit;
+
+    // Validate seller exists
+    const seller = await this.sellerRepository.findOne({
+      where: { id: sellerId }
+    });
+    if (!seller) {
+      throw new Error("Seller not found");
+    }
+
+    // Build where condition
+    const where: any = {
+      sellerId: sellerId,
+    };
+
+    // Add filters
+    if (filters.search) {
+      where.name = Raw((alias) => `${alias} ILIKE '%${filters.search}%'`);
+    }
+    if (filters.published !== undefined) {
+      where.published = filters.published;
+    }
+    if (filters.featured !== undefined) {
+      where.featured = filters.featured;
+    }
+    if (filters.approved !== undefined) {
+      where.approved = filters.approved;
+    }
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.regularPrice = {};
+      if (filters.minPrice !== undefined) {
+        where.regularPrice = Raw((alias) => `${alias} >= ${filters.minPrice}`);
+      }
+      if (filters.maxPrice !== undefined) {
+        where.regularPrice = Raw((alias) => `${alias} <= ${filters.maxPrice}`);
+      }
+    }
+
+    // Query products
+    const [products, total] = await this.productRepository.findAndCount({
+      where,
+      skip,
+      take: limit,
+      order: { [sort]: order },
+      relations: ["categories", "thumbnailImg", "photos", "seller"],
+    });
+
+    const productDtos = await Promise.all(
+      products.map((product) => this.toProductResponse(product))
+    );
+
+    return {
+      data: productDtos,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   async findBySlug(slug: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { slug },
-      relations: ["categories", "thumbnailImg", "photos"],
+      relations: ["categories", "thumbnailImg", "photos", "seller"],
     });
     if (!product) {
       throw new Error("Product not found");

@@ -222,4 +222,8 @@ export class UpdateProductDto {
   @IsOptional()
   @IsArray()
   variations?: any[];
+
+  @IsOptional()
+  @IsUUID()
+  sellerId?: string;
 } 

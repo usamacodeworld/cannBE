@@ -49,6 +49,11 @@ class ProductFilters {
   featured?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  approved?: boolean;
+
+  @IsOptional()
   @IsNumber()
   @Type(() => Number)
   minPrice?: number;

@@ -3,6 +3,7 @@ import { BaseEntity } from '../../../common/entities/base.entity';
 import { Category } from '../../category/category.entity';
 import { MediaFile } from '../../media/media-file.entity';
 import { Attribute } from '../../attributes/entities/attribute.entity';
+import { Seller } from '../../seller/entities/seller.entity';
 
 @Entity('products')
 export class Product extends BaseEntity {
@@ -11,6 +12,13 @@ export class Product extends BaseEntity {
 
   @Column({ nullable: true })
   userId: string;
+
+  @Column({ nullable: true })
+  sellerId: string;
+
+  @ManyToOne(() => Seller, { nullable: true })
+  @JoinColumn({ name: 'sellerId' })
+  seller: Seller;
 
   @Column()
   name: string;

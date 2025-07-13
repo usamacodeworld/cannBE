@@ -243,4 +243,8 @@ export class CreateProductDto {
     quantity: number;
     imageId?: string;
   }>;
+
+  @IsOptional()
+  @IsUUID()
+  sellerId?: string;
 } 

@@ -1,9 +1,13 @@
 import { BaseSeeder } from '../../../common/seeders/base.seeder';
 import { Product } from '../entities/product.entity';
+import { SellerSeeder } from '../../seller/seeders/seller.seeder';
 
 export class ProductSeeder extends BaseSeeder {
   async run(): Promise<void> {
     const productRepository = this.dataSource.getRepository(Product);
+
+    // Get seller IDs from SellerSeeder
+    const sellerIds = SellerSeeder.createdSellerIds;
 
     const products = [
       {
@@ -20,8 +24,8 @@ export class ProductSeeder extends BaseSeeder {
         tags: ['sample', 'test'],
         addedBy: 'admin',
         userId: '1',
-        photosIds: ['https://example.com/photo1.jpg'],
-        thumbnailImgId: 'https://example.com/thumbnail1.jpg',
+        sellerId: sellerIds[0] || null,
+        thumbnailImgId: null,
         metaTitle: 'Sample Product 1 - Your Store',
         metaDescription: 'Buy Sample Product 1 at great prices',
         rating: 4.5,
@@ -49,8 +53,8 @@ export class ProductSeeder extends BaseSeeder {
         tags: ['featured', 'premium'],
         addedBy: 'admin',
         userId: '1',
-        photosIds: ['https://example.com/photo2.jpg'],
-        thumbnailImgId: 'https://example.com/thumbnail2.jpg',
+        sellerId: sellerIds[1] || null,
+        thumbnailImgId: null,
         metaTitle: 'Sample Product 2 - Your Store',
         metaDescription: 'Premium Sample Product 2 available now',
         rating: 4.8,

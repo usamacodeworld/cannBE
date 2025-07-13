@@ -66,7 +66,6 @@ export const validateDto = (dtoClass: any, source: 'body' | 'query' = 'body') =>
       req.body = dtoObject;
     } else {
       req.validatedQuery = dtoObject;
-      req.query = dtoObject as unknown as ParsedQs; // Type cast to match Express query type
     }
     next();
   };

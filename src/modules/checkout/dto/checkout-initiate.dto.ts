@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsBoolean, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsBoolean, IsUUID, IsObject } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CheckoutInitiateDto {
@@ -18,8 +18,38 @@ export class CheckoutInitiateDto {
   shippingAddressId?: string;
 
   @IsOptional()
+  @IsObject()
+  shippingAddress?: {
+    firstName?: string;
+    lastName?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    phone?: string;
+    email?: string;
+  };
+
+  @IsOptional()
   @IsUUID()
   billingAddressId?: string;
+
+  @IsOptional()
+  @IsObject()
+  billingAddress?: {
+    firstName?: string;
+    lastName?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    phone?: string;
+    email?: string;
+  };
 
   @IsOptional()
   @IsString()

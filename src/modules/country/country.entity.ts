@@ -2,8 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 @Entity('countries')
 export class Country {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'varchar', length: 2, default: '' })
   code: string;
@@ -11,8 +11,8 @@ export class Country {
   @Column({ type: 'varchar', length: 100, default: '' })
   name: string;
 
-  @Column({ type: 'int', default: 1 })
-  status: number;
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

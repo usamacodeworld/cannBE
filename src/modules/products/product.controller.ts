@@ -5,6 +5,7 @@ import { Attribute } from "../attributes/entities/attribute.entity";
 import { AttributeValue } from "../attributes/entities/attribute-value.entity";
 import { Category } from "../category/category.entity";
 import { MediaFile } from "../media/media-file.entity";
+import { Seller } from "../seller/entities/seller.entity";
 import { ProductService } from "./product.service";
 import { cuid } from "../../libs/cuid";
 import slug from "slug";
@@ -27,7 +28,8 @@ class ProductController extends BaseController {
     attributeRepository: Repository<Attribute>,
     attributeValueRepository: Repository<AttributeValue>,
     categoryRepository: Repository<Category>,
-    mediaRepository: Repository<MediaFile>
+    mediaRepository: Repository<MediaFile>,
+    sellerRepository: Repository<Seller>
   ) {
     super();
     this.productService = new ProductService(
@@ -35,7 +37,8 @@ class ProductController extends BaseController {
       attributeRepository,
       attributeValueRepository,
       categoryRepository,
-      mediaRepository
+      mediaRepository,
+      sellerRepository
     );
   }
 
@@ -139,6 +142,17 @@ class ProductController extends BaseController {
       this.handleAsyncError(res, error, "Product not found", 404);
     }
   };
+
+  getProductsBySeller = async (req: Request, res: Response) => {
+    try {
+      const { sellerId } = req.params;
+      const query = req.query as unknown as GetProductsQueryDto;
+      const products = await this.productService.findBySellerId(sellerId, query);
+      this.createSuccessResponse(res, "Products retrieved successfully", products);
+    } catch (error: any) {
+      this.handleAsyncError(res, error, "Failed to retrieve products for seller", 500);
+    }
+  };
 }
 
 export function productController(
@@ -146,14 +160,16 @@ export function productController(
   attributeRepository: Repository<Attribute>,
   attributeValueRepository: Repository<AttributeValue>,
   categoryRepository: Repository<Category>,
-  mediaRepository: Repository<MediaFile>
+  mediaRepository: Repository<MediaFile>,
+  sellerRepository: Repository<Seller>
 ) {
   const controller = new ProductController(
     productRepository,
     attributeRepository,
     attributeValueRepository,
     categoryRepository,
-    mediaRepository
+    mediaRepository,
+    sellerRepository
   );
 
   return {
@@ -164,6 +180,7 @@ export function productController(
     deleteProduct: controller.deleteProduct,
     getProductsByCategory: controller.getProductsByCategory,
     getProductBySlug: controller.getProductBySlug,
+    getProductsBySeller: controller.getProductsBySeller,
   };
 }
 
@@ -173,10 +190,12 @@ const attributeRepository = AppDataSource.getRepository(Attribute);
 const attributeValueRepository = AppDataSource.getRepository(AttributeValue);
 const categoryRepository = AppDataSource.getRepository(Category);
 const mediaRepository = AppDataSource.getRepository(MediaFile);
+const sellerRepository = AppDataSource.getRepository(Seller);
 const ctrl = productController(
   productRepository,
   attributeRepository,
   attributeValueRepository,
   categoryRepository,
-  mediaRepository
+  mediaRepository,
+  sellerRepository
 );

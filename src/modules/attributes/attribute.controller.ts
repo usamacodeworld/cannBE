@@ -19,7 +19,7 @@ export function attributeController(
   return {
     getAllAttributes: async (req: Request, res: Response) => {
       try {
-        const query = req.query as unknown as GetAttributesQueryDto;
+        const query = req.validatedQuery || req.query as unknown as GetAttributesQueryDto;
         const result = await attributeService.getAllAttributes(query);
         res.json({
           message: "Attributes retrieved successfully",
@@ -50,7 +50,7 @@ export function attributeController(
     getAttributeValues: async (req: Request, res: Response) => {
       try {
         const attributeId = req.params.id;
-        const query = req.query as unknown as GetAttributesQueryDto;
+        const query = req.validatedQuery || req.query as unknown as GetAttributesQueryDto;
         const result = await attributeService.getAttributeValues(
           attributeId,
           query

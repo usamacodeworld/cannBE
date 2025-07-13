@@ -8,6 +8,8 @@ import cartRoutes from "./modules/cart/cart.routes";
 import homeRoutes from "./modules/home/home.routes";
 import checkoutRoutes from "./modules/checkout/checkout.routes";
 import addressRoutes from "./modules/address/address.routes";
+import sellerRoutes from "./modules/seller/seller.routes";
+import { shippingRoutes } from "./modules/shipping";
 
 const Router = r();
 
@@ -20,5 +22,7 @@ Router.use("/cart", cartRoutes);
 Router.use("/home", homeRoutes);
 Router.use("/checkout", checkoutRoutes);
 Router.use("/addresses", addressRoutes);
+Router.use("/sellers", sellerRoutes);
+Router.use("/shipping", shippingRoutes);
 
 export { Router };

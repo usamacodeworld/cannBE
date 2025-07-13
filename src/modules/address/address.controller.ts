@@ -32,7 +32,7 @@ export const getAddresses = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const query: GetAddressesQueryDto = req.query as any;
+    const query: GetAddressesQueryDto = req.validatedQuery || req.query as any;
     const addresses = await addressService.getAddresses(userId, query);
 
     res.json(getResponseAPI('0', addresses));

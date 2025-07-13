@@ -19,10 +19,25 @@ export class ProductVariationDto {
   image?: MediaFileResponseDto;
 }
 
+export class SellerInfoDto {
+  id: string;
+  businessName: string;
+  businessDescription?: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  businessWebsite?: string;
+  status: string;
+  verificationStatus: string;
+  rating: number;
+  reviewCount: number;
+}
+
 export class ProductResponseDto {
   id: string;
   addedBy: string;
   userId: string;
+  sellerId?: string;
+  seller?: SellerInfoDto;
   name: string;
   slug: string;
   photosIds: string[];

@@ -34,6 +34,11 @@ import { paymentService } from "../../common/services/payment.service";
 import { shippingService } from "../../common/services/shipping.service";
 import { taxService } from "../../common/services/tax.service";
 import { emailService } from "../../common/services/email.service";
+import { ShippingIntegrationService } from "../shipping/shipping-integration.service";
+import { ShippingRateService } from "../shipping/shipping-rate.service";
+import { ShippingMethodService } from "../shipping/shipping-method.service";
+import { ShippingRate } from "../shipping/shipping-rate.entity";
+import { ShippingMethod } from "../shipping/shipping-method.entity";
 
 export class CheckoutService {
   private orderRepository: Repository<Order>;
@@ -55,12 +60,12 @@ export class CheckoutService {
     try {
       const sessionKey = `checkout:session:${checkoutId}`;
       const session = await cacheService.get(sessionKey);
-      
+
       if (session) {
         // Enrich session with address data if not already present
         return await this.enrichSessionWithAddresses(session);
       }
-      
+
       return null;
     } catch (error) {
       console.error("Error getting checkout session:", error);
@@ -76,14 +81,22 @@ export class CheckoutService {
       }
 
       // Populate missing addresses
-      if (session.shippingAddressId && !session.shippingAddress && session.userId) {
+      if (
+        session.shippingAddressId &&
+        !session.shippingAddress &&
+        session.userId
+      ) {
         session.shippingAddress = await this.validateUserAddress(
           session.userId,
           session.shippingAddressId
         );
       }
 
-      if (session.billingAddressId && !session.billingAddress && session.userId) {
+      if (
+        session.billingAddressId &&
+        !session.billingAddress &&
+        session.userId
+      ) {
         session.billingAddress = await this.validateUserAddress(
           session.userId,
           session.billingAddressId
@@ -149,7 +162,27 @@ export class CheckoutService {
     this.dataSource = dataSource;
   }
 
-  async getCheckoutSessionWithAddresses(checkoutId: string): Promise<any | null> {
+  // Initialize shipping services
+  private getShippingIntegrationService(): ShippingIntegrationService {
+    const shippingRateRepository = this.dataSource.getRepository(ShippingRate);
+    const shippingMethodRepository =
+      this.dataSource.getRepository(ShippingMethod);
+
+    const shippingRateService = new ShippingRateService(shippingRateRepository);
+    const shippingMethodService = new ShippingMethodService(
+      shippingMethodRepository
+    );
+
+    return new ShippingIntegrationService(
+      this.dataSource,
+      shippingRateService,
+      shippingMethodService
+    );
+  }
+
+  async getCheckoutSessionWithAddresses(
+    checkoutId: string
+  ): Promise<any | null> {
     return await this.getCheckoutSession(checkoutId);
   }
 
@@ -184,17 +217,72 @@ export class CheckoutService {
       }
 
       // Recalculate shipping and tax based on new address
-      const shippingMethods = await this.getShippingMethods(
-        shippingAddress,
-        session.items
-      );
-      const defaultShipping = shippingMethods[0];
-      const shippingAmount = defaultShipping?.price || 0;
+      let shippingAmount = 0;
+      let availableShippingMethods: ShippingMethodResponseDto[] = [];
 
-      const taxAmount = await this.calculateTaxAmount(
-        shippingAddress,
-        session.items
-      );
+      try {
+        const shippingIntegrationService = this.getShippingIntegrationService();
+
+        // Convert items to shipping format
+        const shippingItems = session.items.map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.unitPrice,
+          weight: item.product?.weight || 0.5,
+          categoryIds: item.product?.categoryIds || [],
+        }));
+
+        const shippingRequest = {
+          items: shippingItems,
+          shippingAddress: {
+            country: shippingAddress.country || "US",
+            state: shippingAddress.state || "",
+            city: shippingAddress.city || "",
+            postalCode: shippingAddress.postalCode || "",
+          },
+          orderValue: session.summary.subtotal,
+          isHoliday: false,
+        };
+
+        // Calculate shipping options
+        const shippingOptions =
+          await shippingIntegrationService.calculateShippingOptions(
+            shippingRequest
+          );
+
+        if (shippingOptions && shippingOptions.length > 0) {
+          // Use the cheapest shipping option as default
+          const defaultShipping = shippingOptions[0];
+          shippingAmount = defaultShipping.totalCost;
+
+          // Convert to shipping method format for compatibility
+          availableShippingMethods = shippingOptions.map((option) => ({
+            id: option.methodId,
+            name: option.methodName,
+            description: `${option.methodName} - ${
+              option.estimatedDays || 7
+            } days`,
+            price: option.totalCost,
+            estimatedDays: option.estimatedDays || 7,
+          }));
+        } else {
+          // No shipping methods available for this address/cart
+          availableShippingMethods = [];
+          console.warn(
+            "No shipping methods available for the provided address and cart items"
+          );
+        }
+      } catch (error) {
+        console.error("Error calculating shipping:", error);
+        // Shipping calculation failed - return empty array
+        availableShippingMethods = [];
+      }
+      const taxAmount = 0;
+      // const taxAmount = await this.calculateTaxAmount(
+      //   shippingAddress,
+      //   session.items
+      // );
 
       // Update session with new calculations
       session.summary = await this.calculateSummary(
@@ -211,7 +299,7 @@ export class CheckoutService {
 
       return {
         session,
-        availableShippingMethods: shippingMethods,
+        availableShippingMethods,
         updatedSummary: session.summary,
       };
     } catch (error: any) {
@@ -237,25 +325,159 @@ export class CheckoutService {
       // Validate cart items
       const validatedItems = await this.validateCartItems(cartItems);
       console.log("validatedItems===> ", validatedItems);
-      // Calculate summary
-      const summary = await this.calculateSummary(validatedItems);
+
+      // Calculate initial summary without shipping
+      let summary = await this.calculateSummary(validatedItems);
 
       // Get user addresses if provided
       let shippingAddress = null;
       let billingAddress = null;
+      let shippingAmount = 0;
+      let availableShippingMethods: ShippingMethodResponseDto[] = [];
 
-      if (data.shippingAddressId) {
+      // Handle shipping address - for authenticated users with addressId or guest users with direct address
+      if (data.shippingAddressId && data.userId) {
+        // Authenticated user with saved address ID
         shippingAddress = await this.validateUserAddress(
-          data.userId!,
+          data.userId,
           data.shippingAddressId
         );
+      } else if (data.shippingAddress) {
+        // Guest user with direct address or authenticated user with direct address
+        shippingAddress = data.shippingAddress;
       }
 
-      if (data.billingAddressId) {
+      // Handle billing address
+      if (data.billingAddressId && data.userId) {
+        // Authenticated user with saved address ID
         billingAddress = await this.validateUserAddress(
-          data.userId!,
+          data.userId,
           data.billingAddressId
         );
+      } else if (data.billingAddress) {
+        // Guest user with direct address or authenticated user with direct address
+        billingAddress = data.billingAddress;
+      } else if (shippingAddress) {
+        // Default billing address to shipping address if not provided
+        billingAddress = shippingAddress;
+      }
+      console.log("Shipping Adderess => ", shippingAddress);
+      // Calculate shipping costs if shipping address is provided
+      if (shippingAddress) {
+        try {
+          const shippingIntegrationService =
+            this.getShippingIntegrationService();
+
+          // Convert items to shipping format
+          const shippingItems = validatedItems.map((item: any) => ({
+            id: item.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.unitPrice,
+            weight: item.product?.weight || 0.5,
+            categoryIds: item.product?.categoryIds || [],
+          }));
+
+          const shippingRequest = {
+            items: shippingItems,
+            shippingAddress: {
+              country: shippingAddress.country || "US",
+              state: shippingAddress.state || "",
+              city: shippingAddress.city || "",
+              postalCode: shippingAddress.postalCode || "",
+            },
+            orderValue: summary.subtotal,
+            isHoliday: false,
+          };
+
+          console.log("Ship COs ==> ", shippingRequest, data);
+
+          // If a specific shipping method is provided, calculate cost for that method only
+          if (data.shippingMethod) {
+            const selectedShippingCost =
+              await shippingIntegrationService.getShippingCostForMethod(
+                data.shippingMethod,
+                shippingRequest
+              );
+            console.log("Ship selected ==> ", selectedShippingCost);
+            if (selectedShippingCost) {
+              shippingAmount = selectedShippingCost.totalCost;
+
+              // Get all available shipping methods for the response
+              const shippingOptions =
+                await shippingIntegrationService.calculateShippingOptions(
+                  shippingRequest
+                );
+              availableShippingMethods = shippingOptions.map((option) => ({
+                id: option.methodId,
+                name: option.methodName,
+                description: `${option.methodName} - ${
+                  option.estimatedDays || 7
+                } days`,
+                price: option.totalCost,
+                estimatedDays: option.estimatedDays || 7,
+              }));
+
+              // Update summary with selected shipping cost
+              summary = await this.calculateSummary(
+                validatedItems,
+                0,
+                shippingAmount,
+                0
+              );
+            } else {
+              // Selected shipping method not available for this address/cart
+              availableShippingMethods = [];
+              console.warn(
+                `Shipping method ${data.shippingMethod} not available for the provided address and cart items`
+              );
+            }
+          } else {
+            // No specific method provided, calculate all available options
+            const shippingOptions =
+              await shippingIntegrationService.calculateShippingOptions(
+                shippingRequest
+              );
+
+            if (shippingOptions && shippingOptions.length > 0) {
+              // Use the first available method as default
+              const defaultShipping = shippingOptions[0];
+              shippingAmount = defaultShipping.totalCost;
+
+              // Convert to shipping method format for compatibility
+              availableShippingMethods = shippingOptions.map((option) => ({
+                id: option.methodId,
+                name: option.methodName,
+                description: `${option.methodName} - ${
+                  option.estimatedDays || 7
+                } days`,
+                price: option.totalCost,
+                estimatedDays: option.estimatedDays || 7,
+              }));
+
+              // Update summary with default shipping cost
+              summary = await this.calculateSummary(
+                validatedItems,
+                0,
+                shippingAmount,
+                0
+              );
+            } else {
+              // No shipping methods available for this address/cart
+              availableShippingMethods = [];
+              console.warn(
+                "No shipping methods available for the provided address and cart items"
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Error calculating shipping:", error);
+          // Shipping calculation failed - return empty array
+          availableShippingMethods = [];
+        }
+      } else {
+        // No shipping address provided - return empty array
+        availableShippingMethods = [];
       }
 
       // Store checkout session in Redis
@@ -268,9 +490,11 @@ export class CheckoutService {
         shippingAddressId: data.shippingAddressId,
         billingAddressId: data.billingAddressId,
         shippingAddress: shippingAddress, // Store full address object
-        billingAddress: billingAddress,   // Store full address object
+        billingAddress: billingAddress, // Store full address object
         shippingMethod: data.shippingMethod,
         paymentMethod: data.paymentMethod,
+        shippingAmount,
+        availableShippingMethods,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -288,8 +512,7 @@ export class CheckoutService {
           PAYMENT_METHOD.PAYPAL,
           PAYMENT_METHOD.CASH_ON_DELIVERY,
         ],
-        availableShippingMethods:
-          await shippingService.getDefaultShippingMethods(),
+        availableShippingMethods,
       };
     } catch (error: any) {
       throw new Error(error.message || "Failed to initiate checkout");
@@ -364,46 +587,60 @@ export class CheckoutService {
     shippingAddress: any
   ): Promise<ShippingMethodResponseDto[]> {
     try {
+      const shippingIntegrationService = this.getShippingIntegrationService();
+
       // Convert items to shipping format
       const shippingItems = items.map((item: any) => ({
-        weight: item.product?.weight || item.weight || 1,
-        length: item.product?.length || item.length || 10,
-        width: item.product?.width || item.width || 10,
-        height: item.product?.height || item.height || 10,
+        id: item.id || `item-${Math.random()}`,
+        productId: item.productId,
         quantity: item.quantity,
-        description: item.product?.name || item.name || 'Product',
+        price: item.unitPrice || item.price,
+        weight: item.product?.weight || item.weight || 0.5,
+        categoryIds: item.product?.categoryIds || item.categoryIds || [],
       }));
 
+      const orderValue = items.reduce((total, item) => {
+        const price = item.unitPrice || item.price || 0;
+        return total + price * item.quantity;
+      }, 0);
+
       const shippingRequest = {
-        fromAddress: {
-          firstName: "CannBE",
-          lastName: "Store",
-          addressLine1: "123 Business Street",
-          city: "Business City",
-          state: "CA",
-          postalCode: "90210",
-          country: "US",
-        },
-        toAddress: shippingAddress,
         items: shippingItems,
-        weight: shippingService.calculateWeight(shippingItems),
+        shippingAddress: {
+          country: shippingAddress.country || "US",
+          state: shippingAddress.state || "",
+          city: shippingAddress.city || "",
+          postalCode: shippingAddress.postalCode || "",
+        },
+        orderValue,
+        isHoliday: false,
       };
 
-      // Get real shipping rates
-      const shippingResponse = await shippingService.getShippingRates(
-        shippingRequest
-      );
+      // Calculate shipping options
+      const shippingOptions =
+        await shippingIntegrationService.calculateShippingOptions(
+          shippingRequest
+        );
 
-      if (shippingResponse.success) {
-        return shippingResponse.methods;
+      if (shippingOptions && shippingOptions.length > 0) {
+        // Convert to shipping method format for compatibility
+        return shippingOptions.map((option) => ({
+          id: option.methodId,
+          name: option.methodName,
+          description: `${option.methodName} - ${
+            option.estimatedDays || 7
+          } days`,
+          price: option.totalCost,
+          estimatedDays: option.estimatedDays || 7,
+        }));
       } else {
-        // Fallback to default methods
-        return shippingService.getDefaultShippingMethods();
+        // No shipping methods available
+        return [];
       }
     } catch (error: any) {
       console.error("Shipping calculation error:", error);
-      // Return default shipping methods as fallback
-      return shippingService.getDefaultShippingMethods();
+      // Return empty array instead of default methods
+      return [];
     }
   }
 
@@ -417,46 +654,55 @@ export class CheckoutService {
         throw new Error("Checkout session not found or expired");
       }
 
+      const shippingIntegrationService = this.getShippingIntegrationService();
+
       // Convert items to shipping format
       const shippingItems = session.items.map((item: any) => ({
-        weight: item.product.weight || 1,
-        length: item.product.length || 10,
-        width: item.product.width || 10,
-        height: item.product.height || 10,
+        id: item.id,
+        productId: item.productId,
         quantity: item.quantity,
-        description: item.product.name,
+        price: item.unitPrice,
+        weight: item.product?.weight || 0.5,
+        categoryIds: item.product?.categoryIds || [],
       }));
 
       const shippingRequest = {
-        fromAddress: {
-          firstName: "CannBE",
-          lastName: "Store",
-          addressLine1: "123 Business Street",
-          city: "Business City",
-          state: "CA",
-          postalCode: "90210",
-          country: "US",
-        },
-        toAddress: shippingAddress,
         items: shippingItems,
-        weight: shippingService.calculateWeight(shippingItems),
+        shippingAddress: {
+          country: shippingAddress.country,
+          state: shippingAddress.state,
+          city: shippingAddress.city,
+          postalCode: shippingAddress.postalCode,
+        },
+        orderValue: session.summary.subtotal,
+        isHoliday: false,
       };
 
-      // Get real shipping rates
-      const shippingResponse = await shippingService.getShippingRates(
-        shippingRequest
-      );
+      // Calculate shipping options
+      const shippingOptions =
+        await shippingIntegrationService.calculateShippingOptions(
+          shippingRequest
+        );
 
-      if (shippingResponse.success) {
-        return shippingResponse.methods;
+      if (shippingOptions && shippingOptions.length > 0) {
+        // Convert to shipping method format for compatibility
+        return shippingOptions.map((option) => ({
+          id: option.methodId,
+          name: option.methodName,
+          description: `${option.methodName} - ${
+            option.estimatedDays || 7
+          } days`,
+          price: option.totalCost,
+          estimatedDays: option.estimatedDays || 7,
+        }));
       } else {
-        // Fallback to default methods
-        return shippingService.getDefaultShippingMethods();
+        // No shipping methods available
+        return [];
       }
     } catch (error: any) {
       console.error("Shipping calculation error:", error);
-      // Return default shipping methods as fallback
-      return shippingService.getDefaultShippingMethods();
+      // Return empty array instead of default methods
+      return [];
     }
   }
 
@@ -574,7 +820,7 @@ export class CheckoutService {
         const shippingMethod = session.shippingMethod || {
           id: "standard",
           name: "Standard Shipping",
-          price: 9.99,
+          price: 4.99,
           estimatedDays: 7,
         };
 
@@ -596,6 +842,18 @@ export class CheckoutService {
           customerName: "John Doe",
           description: `Order ${orderNumber}`,
         };
+        console.log("Payment Rwquest  ===> ", paymentRequest);
+        console.log("🔍 Payment Debug - Session Summary:", {
+          subtotal: session.summary.subtotal,
+          shippingAmount: session.summary.shippingAmount,
+          taxAmount: session.summary.taxAmount,
+          discountAmount: session.summary.discountAmount,
+          totalAmount: session.summary.totalAmount,
+        });
+        // console.log(
+        //   "🔍 Payment Debug - Payment Request Amount:",
+        //   paymentRequest.amount
+        // );
 
         // Process payment first
         // const paymentRequest = {
@@ -912,17 +1170,6 @@ export class CheckoutService {
     };
   }
 
-  private async getShippingMethods(
-    address: any,
-    items: any[]
-  ): Promise<ShippingMethodResponseDto[]> {
-    // Calculate shipping based on address and items
-    const baseMethods = await this.getAvailableShippingMethods();
-
-    // You can modify prices based on destination, weight, etc.
-    return baseMethods;
-  }
-
   private async calculateTaxAmount(
     address: any,
     items: any[]
@@ -1084,7 +1331,11 @@ export class CheckoutService {
     );
   }
 
-  async getOrderById(orderId: string, userId?: string, guestId?: string): Promise<Order | null> {
+  async getOrderById(
+    orderId: string,
+    userId?: string,
+    guestId?: string
+  ): Promise<Order | null> {
     // Create cache key
     const cacheKey = `order:${orderId}`;
 
@@ -1093,14 +1344,14 @@ export class CheckoutService {
       cacheKey,
       async () => {
         const whereCondition: any = { id: orderId };
-        
+
         // Add user/guest validation if provided
         if (userId) {
           whereCondition.userId = userId;
         } else if (guestId) {
           whereCondition.guestId = guestId;
         }
-        
+
         return await this.orderRepository.findOne({
           where: whereCondition,
           relations: ["items", "statusHistory"],
@@ -1150,38 +1401,6 @@ export class CheckoutService {
     }
 
     return updatedOrder;
-  }
-
-  private async getAvailableShippingMethods(): Promise<
-    ShippingMethodResponseDto[]
-  > {
-    // Mock shipping methods - in production, integrate with shipping providers
-    return [
-      {
-        id: "standard",
-        name: "Standard Shipping",
-        description: "5-7 business days",
-        price: 9.99,
-        estimatedDays: 7,
-        carrier: "USPS",
-      },
-      {
-        id: "express",
-        name: "Express Shipping",
-        description: "2-3 business days",
-        price: 19.99,
-        estimatedDays: 3,
-        carrier: "FedEx",
-      },
-      {
-        id: "overnight",
-        name: "Overnight Shipping",
-        description: "Next business day",
-        price: 39.99,
-        estimatedDays: 1,
-        carrier: "UPS",
-      },
-    ];
   }
 
   // Get user addresses for checkout

@@ -12,7 +12,7 @@ export class HomeController {
 
   async getHomeData(req: Request, res: Response): Promise<void> {
     try {
-      const query = req.query as any;
+      const query = req.validatedQuery || req.query as any;
       const customData = await this.homeService.getCustomHomeData(query);
 
       res.json(getResponseAPI("0", customData));
@@ -23,7 +23,7 @@ export class HomeController {
 
   async getFeaturedProducts(req: Request, res: Response): Promise<void> {
     try {
-      const query = req.query as any;
+      const query = req.validatedQuery || req.query as any;
       const products = await this.homeService.getFeaturedProducts(query);
 
       res.json(getResponseAPI("0", products));
@@ -34,7 +34,7 @@ export class HomeController {
 
   async getNewArrivals(req: Request, res: Response): Promise<void> {
     try {
-      const query = req.query as any;
+      const query = req.validatedQuery || req.query as any;
       const products = await this.homeService.getNewArrivals(query);
 
       res.json(getResponseAPI("0", products));
@@ -45,7 +45,7 @@ export class HomeController {
 
   async getDeals(req: Request, res: Response): Promise<void> {
     try {
-      const query = req.query as any;
+      const query = req.validatedQuery || req.query as any;
       const products = await this.homeService.getDeals(query);
 
       res.json(getResponseAPI("0", products));
@@ -56,7 +56,7 @@ export class HomeController {
 
   async getProducts(req: Request, res: Response): Promise<void> {
     try {
-      const query = req.query as any;
+      const query = req.validatedQuery || req.query as any;
       const homeData = await this.homeService.getHomeData(query);
       
       // Return only the products data

@@ -5,6 +5,7 @@ import { Attribute } from '../attributes/entities/attribute.entity';
 import { AttributeValue } from '../attributes/entities/attribute-value.entity';
 import { Category } from '../category/category.entity';
 import { MediaFile } from '../media/media-file.entity';
+import { Seller } from '../seller/entities/seller.entity';
 import { productController } from './product.controller';
 import { validateDto } from '../../common/middlewares/validation.middleware';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -19,7 +20,8 @@ const attributeRepository = AppDataSource.getRepository(Attribute);
 const attributeValueRepository = AppDataSource.getRepository(AttributeValue);
 const categoryRepository = AppDataSource.getRepository(Category);
 const mediaRepository = AppDataSource.getRepository(MediaFile);
-const ctrl = productController(productRepository, attributeRepository, attributeValueRepository, categoryRepository, mediaRepository);
+const sellerRepository = AppDataSource.getRepository(Seller);
+const ctrl = productController(productRepository, attributeRepository, attributeValueRepository, categoryRepository, mediaRepository, sellerRepository);
 
 // Product CRUD routes
 router.post('/store', 
@@ -36,6 +38,8 @@ router.post('/store',
 router.get('/all', ctrl.getProducts);
 
 router.get('/category/:categoryId', ctrl.getProductsByCategory);
+
+router.get('/seller/:sellerId', ctrl.getProductsBySeller);
 
 router.get('/slug/:slug', ctrl.getProductBySlug);
 

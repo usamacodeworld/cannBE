@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class UpdateUserSchema1752046899019 implements MigrationInterface {
-    name = 'UpdateUserSchema1752046899019'
+export class MakeUserNameNullable1752312654138 implements MigrationInterface {
+    name = 'MakeUserNameNullable1752312654138'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "userName" DROP NOT NULL`);
@@ -10,5 +10,4 @@ export class UpdateUserSchema1752046899019 implements MigrationInterface {
     public async down(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "userName" SET NOT NULL`);
     }
-
-}
+} 
