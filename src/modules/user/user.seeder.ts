@@ -39,7 +39,7 @@ export class UserSeeder extends BaseSeeder {
       emailVerified: true,
       isActive: true,
       type: USER_TYPE.ADMIN,
-      roles: [superAdminRole, storeAdminRole, storeManagerRole, sellerRole, customerRole]
+      roles: [superAdminRole]  // Super Admin role already has all permissions
     });
 
     // Create store admin

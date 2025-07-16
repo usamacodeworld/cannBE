@@ -13,7 +13,7 @@ import { Order } from "../modules/checkout/entities/order.entity";
 import { OrderItem } from "../modules/checkout/entities/order-item.entity";
 import { OrderStatusHistory } from "../modules/checkout/entities/order-status-history.entity";
 import { ShippingAddress } from "../modules/checkout/entities/shipping-address.entity";
-import { Coupon } from "../modules/checkout/entities/coupon.entity";
+import { Coupon } from "../modules/coupon/coupon.entity";
 import { Address } from "../modules/address/address.entity";
 import { Seller } from "../modules/seller/entities/seller.entity";
 import { ShippingZone } from "../modules/shipping/shipping-zone.entity";

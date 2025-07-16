@@ -14,6 +14,7 @@ import { SellerSeeder } from "../../modules/seller/seeders/seller.seeder";
 import { ShippingZoneSeeder } from "../../modules/shipping/seeders/shipping-zone.seeder";
 import { ShippingMethodSeeder } from "../../modules/shipping/seeders/shipping-method.seeder";
 import { ShippingRateSeeder } from "../../modules/shipping/seeders/shipping-rate.seeder";
+import { CouponSeeder } from "../../modules/checkout/seeders/coupon.seeder";
 
 export class SeederRunner {
   private dataSource: DataSource;
@@ -47,6 +48,7 @@ export class SeederRunner {
     this.seederRegistry.set("shipping-zones", new ShippingZoneSeeder(this.dataSource));
     this.seederRegistry.set("shipping-methods", new ShippingMethodSeeder(this.dataSource));
     this.seederRegistry.set("shipping-rates", new ShippingRateSeeder(this.dataSource));
+    this.seederRegistry.set("coupons", new CouponSeeder(this.dataSource));
   }
 
   async run(): Promise<void> {
@@ -112,6 +114,7 @@ export class SeederRunner {
       new ShippingZoneSeeder(this.dataSource),
       new ShippingMethodSeeder(this.dataSource),
       new ShippingRateSeeder(this.dataSource),
+      new CouponSeeder(this.dataSource),
     ];
 
     for (const seeder of seeders) {

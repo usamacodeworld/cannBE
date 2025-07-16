@@ -4,7 +4,7 @@ import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { ShippingAddress } from './entities/shipping-address.entity';
-import { Coupon } from './entities/coupon.entity';
+import { Coupon } from '../coupon/coupon.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { Product } from '../products/entities/product.entity';
 import { User } from '../user/user.entity';

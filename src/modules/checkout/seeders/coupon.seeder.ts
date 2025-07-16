@@ -1,5 +1,5 @@
 import { BaseSeeder } from '../../../common/seeders/base.seeder';
-import { Coupon, COUPON_TYPE } from '../entities/coupon.entity';
+import { Coupon, COUPON_TYPE } from '../../coupon/coupon.entity';
 
 export class CouponSeeder extends BaseSeeder {
   async run(): Promise<void> {

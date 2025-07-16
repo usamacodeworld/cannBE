@@ -299,5 +299,41 @@ export function cartController(
         });
       }
     },
+
+    getCartForCouponValidation: async (req: Request, res: Response) => {
+      try {
+        const user = req.user;
+        const { guestId } = req.query;
+
+        let cartItems;
+        if (user?.id) {
+          cartItems = await cartService.getCartForCouponValidation(undefined, user.id);
+        } else if (guestId) {
+          cartItems = await cartService.getCartForCouponValidation(guestId as string);
+        } else {
+          res.status(400).json({
+            message: "Guest ID is required for unauthenticated users",
+            requestId: cuid(),
+            data: null,
+            code: 1,
+          });
+          return;
+        }
+
+        res.json({
+          message: "Cart items for coupon validation retrieved successfully",
+          requestId: cuid(),
+          data: cartItems,
+          code: 0,
+        });
+      } catch (error: any) {
+        res.status(500).json({
+          message: error.message,
+          requestId: cuid(),
+          data: null,
+          code: 1,
+        });
+      }
+    },
   };
 }

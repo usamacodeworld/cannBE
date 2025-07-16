@@ -21,13 +21,12 @@ const ctrl = cartController(cartRepository, productRepository, attributeReposito
 router.post('/add', validateDto(AddToCartDto), ctrl.addToCart);
 
 router.get('/items', ctrl.getCart);
-
-router.put('/update/:id', validateDto(UpdateCartDto), ctrl.updateCartItem);
+router.get('/summary', ctrl.getCartSummary);
+router.get('/coupon-validation', ctrl.getCartForCouponValidation);
+router.put('/:id', validateDto(UpdateCartDto), ctrl.updateCartItem);
 
 router.delete('/remove/:id', ctrl.removeFromCart);
 
 router.delete('/clear', ctrl.clearCart);
-
-router.get('/summary', ctrl.getCartSummary);
 
 export default router; 

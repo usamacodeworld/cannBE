@@ -1,6 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
-import { User } from '../../user/user.entity';
+import { BaseEntity } from '../../common/entities/base.entity';
+import { User } from '../user/user.entity';
 
 export enum COUPON_TYPE {
   PERCENTAGE = 'percentage',

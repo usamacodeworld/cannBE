@@ -3,7 +3,7 @@ import {
   PAYMENT_STATUS,
   PAYMENT_METHOD,
 } from "../entities/order.entity";
-import { COUPON_TYPE } from "../entities/coupon.entity";
+import { COUPON_TYPE } from "../../coupon/coupon.entity";
 
 export class CheckoutSummaryDto {
   subtotal: number;

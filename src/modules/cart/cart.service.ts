@@ -128,7 +128,11 @@ export class CartService {
         }
       }
 
-      return { isValid: true, variantPrice: selectedVariantPrice, variantQuantity };
+      return {
+        isValid: true,
+        variantPrice: selectedVariantPrice,
+        variantQuantity,
+      };
     } catch (error) {
       return { isValid: false, message: "Error validating variants" };
     }
@@ -179,7 +183,13 @@ export class CartService {
         finalPrice = Number(variantValidation.variantPrice || 0);
       } else {
         // For non-variant products, use the product's price
-        finalPrice = Number(data.price || product.salePrice || product.regularPrice || 0);
+        if (data.price) {
+          finalPrice = Number(data.price);
+        } else if (Number(product.salePrice) > 0) {
+          finalPrice = Number(product.salePrice);
+        } else {
+          finalPrice = Number(product.regularPrice || 0);
+        }
       }
 
       // Check if item already exists in cart (including variants)
@@ -249,9 +259,7 @@ export class CartService {
     }
   }
 
-  async getCart(
-    query: GetCartQueryDto
-  ): Promise<CartResponseDto[]> {
+  async getCart(query: GetCartQueryDto): Promise<CartResponseDto[]> {
     try {
       const { guestId, userId } = query;
 
@@ -344,7 +352,9 @@ export class CartService {
           if (data.variants && data.variants.length > 0) {
             finalPrice = Number(variantValidation.variantPrice || 0);
           } else {
-            finalPrice = Number(data.price || product.salePrice || product.regularPrice || 0);
+            finalPrice = Number(
+              data.price || product.salePrice || product.regularPrice || 0
+            );
           }
           cartItem.price = finalPrice;
         }
@@ -429,7 +439,7 @@ export class CartService {
 
       params.push(new Date());
       await this.cartRepository.query(updateQuery, params);
-      
+
       // Invalidate cart cache
       if (userId) {
         await cacheService.deletePattern(`cart:user:${userId}:*`);
@@ -474,6 +484,37 @@ export class CartService {
 
       const summary = await this.cartRepository.query(summaryQuery, params);
       return summary[0] || { totalItems: 0, totalQuantity: 0, totalAmount: 0 };
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  }
+
+  async getCartForCouponValidation(
+    guestId?: string,
+    userId?: string
+  ): Promise<any[]> {
+    try {
+      if (!guestId && !userId) {
+        throw new Error("Either guestId or userId is required");
+      }
+
+      const where: any = { isActive: true };
+      if (guestId) where.guestId = guestId;
+      if (userId) where.userId = userId;
+
+      const cartItems = await this.cartRepository.find({
+        where,
+        relations: ["product", "product.categories"],
+      });
+
+      return cartItems.map((item) => ({
+        productId: item.productId,
+        categoryId: item.product?.categories?.[0]?.id || null, // Take first category
+        quantity: item.quantity,
+        unitPrice: item.price,
+        totalPrice: item.price * item.quantity,
+        product: item.product,
+      }));
     } catch (error: any) {
       throw new Error(error.message);
     }

@@ -8,7 +8,7 @@ import {
 import { OrderItem } from "./entities/order-item.entity";
 import { OrderStatusHistory } from "./entities/order-status-history.entity";
 import { ShippingAddress } from "./entities/shipping-address.entity";
-import { Coupon, COUPON_TYPE } from "./entities/coupon.entity";
+import { Coupon, COUPON_TYPE } from "../coupon/coupon.entity";
 import { Cart } from "../cart/entities/cart.entity";
 import { Product } from "../products/entities/product.entity";
 import { User } from "../user/user.entity";
@@ -38,6 +38,8 @@ import { ShippingIntegrationService } from "../shipping/shipping-integration.ser
 import { ShippingRateService } from "../shipping/shipping-rate.service";
 import { ShippingMethodService } from "../shipping/shipping-method.service";
 import { ShippingRate } from "../shipping/shipping-rate.entity";
+import { CategoryRestrictionService } from "../category-restrictions/category-restriction.service";
+import { CategoryStateRestriction } from "../category-restrictions/category-restriction.entity";
 import { ShippingMethod } from "../shipping/shipping-method.entity";
 
 export class CheckoutService {
@@ -51,6 +53,7 @@ export class CheckoutService {
   private userRepository: Repository<User>;
   private addressRepository: Repository<Address>;
   private dataSource: DataSource;
+  private categoryRestrictionService: CategoryRestrictionService;
 
   // Redis-based checkout sessions with 30-minute TTL
   private readonly CHECKOUT_SESSION_TTL = 1800; // 30 minutes
@@ -160,6 +163,12 @@ export class CheckoutService {
     this.userRepository = userRepository;
     this.addressRepository = addressRepository;
     this.dataSource = dataSource;
+    const categoryRestrictionRepository = this.dataSource.getRepository(
+      CategoryStateRestriction
+    );
+    this.categoryRestrictionService = new CategoryRestrictionService(
+      categoryRestrictionRepository
+    );
   }
 
   // Initialize shipping services
@@ -214,6 +223,57 @@ export class CheckoutService {
         // Default to shipping address if no billing address provided
         session.billingAddress = shippingAddress;
         session.billingAddressId = null;
+      }
+
+      // Validate category-based state restrictions
+      if (shippingAddress && shippingAddress.state) {
+        const categoryIds = session.items
+          .flatMap(
+            (item: any) =>
+              item.product?.categories?.map((cat: any) => cat.id) || []
+          )
+          .filter(Boolean);
+
+        if (categoryIds.length > 0) {
+          const restrictionResult =
+            await this.categoryRestrictionService.isProductRestrictedInState(
+              categoryIds,
+              shippingAddress.state
+            );
+
+          if (restrictionResult.isRestricted) {
+            // Get the restricted product names
+            const restrictedProducts = session.items.filter((item: any) => {
+              const itemCategoryIds =
+                item.product?.categories?.map((cat: any) => cat.id) || [];
+              return itemCategoryIds.some((catId: string) =>
+                restrictionResult.restrictedCategories.some(
+                  (rc: any) => rc.categoryId === catId
+                )
+              );
+            });
+
+            const productNames = restrictedProducts.map(
+              (item: any) => item.product?.name || "Unknown Product"
+            );
+            const uniqueProductNames = [...new Set(productNames)];
+
+            // Get custom messages from restricted categories
+            const customMessages = restrictionResult.restrictedCategories
+              .map((rc: any) => rc.customMessage || rc.reason)
+              .filter(Boolean);
+
+            const errorMessage = `The following products cannot be shipped to ${
+              shippingAddress.state
+            }: ${uniqueProductNames.join(", ")}. ${
+              customMessages.length > 0
+                ? customMessages[0]
+                : "Please remove these items to continue."
+            }`;
+
+            throw new Error(errorMessage);
+          }
+        }
       }
 
       // Recalculate shipping and tax based on new address
@@ -315,7 +375,7 @@ export class CheckoutService {
 
       // Get cart items from user's cart automatically
       const cartItems = await this.getUserCartItems(data.userId, data.guestId);
-      // console.log("User Carts===> ", cartItems);
+
       if (!cartItems || cartItems.length === 0) {
         throw new Error(
           "Cart is empty. Please add items to cart before checkout."
@@ -324,7 +384,6 @@ export class CheckoutService {
 
       // Validate cart items
       const validatedItems = await this.validateCartItems(cartItems);
-      console.log("validatedItems===> ", validatedItems);
 
       // Calculate initial summary without shipping
       let summary = await this.calculateSummary(validatedItems);
@@ -362,6 +421,60 @@ export class CheckoutService {
         billingAddress = shippingAddress;
       }
       console.log("Shipping Adderess => ", shippingAddress);
+
+      // Validate category-based state restrictions if shipping address is provided
+      if (shippingAddress && shippingAddress.state) {
+        const categoryIds = validatedItems
+          .flatMap(
+            (item: any) =>
+              item.product?.categories?.map((cat: any) => cat.id) || []
+          )
+          .filter(Boolean);
+
+        console.log("Category Ids => ", categoryIds);
+
+        if (categoryIds.length > 0) {
+          const restrictionResult =
+            await this.categoryRestrictionService.isProductRestrictedInState(
+              categoryIds,
+              shippingAddress.state
+            );
+
+          if (restrictionResult.isRestricted) {
+            // Get the restricted product names
+            const restrictedProducts = validatedItems.filter((item: any) => {
+              const itemCategoryIds =
+                item.product?.categories?.map((cat: any) => cat.id) || [];
+              return itemCategoryIds.some((catId: string) =>
+                restrictionResult.restrictedCategories.some(
+                  (rc: any) => rc.categoryId === catId
+                )
+              );
+            });
+
+            const productNames = restrictedProducts.map(
+              (item: any) => item.product?.name || "Unknown Product"
+            );
+            const uniqueProductNames = [...new Set(productNames)];
+
+            // Get custom messages from restricted categories
+            const customMessages = restrictionResult.restrictedCategories
+              .map((rc: any) => rc.customMessage || rc.reason)
+              .filter(Boolean);
+
+            const errorMessage = `The following products cannot be shipped to ${
+              shippingAddress.state
+            }: ${uniqueProductNames.join(", ")}. ${
+              customMessages.length > 0
+                ? customMessages[0]
+                : "Please remove these items to continue."
+            }`;
+
+            throw new Error(errorMessage);
+          }
+        }
+      }
+
       // Calculate shipping costs if shipping address is provided
       if (shippingAddress) {
         try {
@@ -390,8 +503,6 @@ export class CheckoutService {
             isHoliday: false,
           };
 
-          console.log("Ship COs ==> ", shippingRequest, data);
-
           // If a specific shipping method is provided, calculate cost for that method only
           if (data.shippingMethod) {
             const selectedShippingCost =
@@ -399,7 +510,6 @@ export class CheckoutService {
                 data.shippingMethod,
                 shippingRequest
               );
-            console.log("Ship selected ==> ", selectedShippingCost);
             if (selectedShippingCost) {
               shippingAmount = selectedShippingCost.totalCost;
 
@@ -778,7 +888,7 @@ export class CheckoutService {
       try {
         // Get checkout session to retrieve cartId
         const session = await this.getCheckoutSession(data.checkoutId);
-        console.log("Session ==> ", session);
+
         if (!session) {
           throw new Error("Checkout session not found or expired");
         }
@@ -816,6 +926,57 @@ export class CheckoutService {
           );
         }
 
+        // Validate category-based state restrictions
+        if (shippingAddress && shippingAddress.state) {
+          const categoryIds = session.items
+            .flatMap(
+              (item: any) =>
+                item.product?.categories?.map((cat: any) => cat.id) || []
+            )
+            .filter(Boolean);
+
+          if (categoryIds.length > 0) {
+            const restrictionResult =
+              await this.categoryRestrictionService.isProductRestrictedInState(
+                categoryIds,
+                shippingAddress.state
+              );
+
+            if (restrictionResult.isRestricted) {
+              // Get the restricted product names
+              const restrictedProducts = session.items.filter((item: any) => {
+                const itemCategoryIds =
+                  item.product?.categories?.map((cat: any) => cat.id) || [];
+                return itemCategoryIds.some((catId: string) =>
+                  restrictionResult.restrictedCategories.some(
+                    (rc: any) => rc.categoryId === catId
+                  )
+                );
+              });
+
+              const productNames = restrictedProducts.map(
+                (item: any) => item.product?.name || "Unknown Product"
+              );
+              const uniqueProductNames = [...new Set(productNames)];
+
+              // Get custom messages from restricted categories
+              const customMessages = restrictionResult.restrictedCategories
+                .map((rc: any) => rc.customMessage || rc.reason)
+                .filter(Boolean);
+
+              const errorMessage = `Cannot complete order. The following products cannot be shipped to ${
+                shippingAddress.state
+              }: ${uniqueProductNames.join(", ")}. ${
+                customMessages.length > 0
+                  ? customMessages[0]
+                  : "Please remove these items to continue."
+              }`;
+
+              throw new Error(errorMessage);
+            }
+          }
+        }
+
         // Get shipping method from session
         const shippingMethod = session.shippingMethod || {
           id: "standard",
@@ -839,17 +1000,10 @@ export class CheckoutService {
           orderId: orderNumber,
           orderNumber,
           customerEmail: billingAddress.email,
-          customerName: "John Doe",
+          customerName: `${billingAddress.firstName} ${billingAddress.lastName}`,
           description: `Order ${orderNumber}`,
         };
-        console.log("Payment Rwquest  ===> ", paymentRequest);
-        console.log("🔍 Payment Debug - Session Summary:", {
-          subtotal: session.summary.subtotal,
-          shippingAmount: session.summary.shippingAmount,
-          taxAmount: session.summary.taxAmount,
-          discountAmount: session.summary.discountAmount,
-          totalAmount: session.summary.totalAmount,
-        });
+
         // console.log(
         //   "🔍 Payment Debug - Payment Request Amount:",
         //   paymentRequest.amount
@@ -1104,16 +1258,13 @@ export class CheckoutService {
 
       // If item has variants, get the price from the selected attribute value
       if (item.selectedVariants && item.selectedVariants.length > 0) {
-        console.log("Yes found ==> ", item);
         for (const variant of item.selectedVariants) {
-          console.log("product attribute ==> ", product.attributes);
           for (const attr of product.attributes || []) {
             const attrValue = (attr.values || []).find(
               (val: any) => val.id === variant.attributeValueId
             );
-            console.log("Attribute value ==> ", attrValue);
+
             if (attrValue && attrValue.price) {
-              console.log("Price Found ==> ", attrValue.price);
               unitPrice = Number(attrValue.price);
               break;
             }
@@ -1192,6 +1343,7 @@ export class CheckoutService {
     userId?: string
   ): Promise<{ valid: boolean; message?: string }> {
     // Check if coupon is expired
+    console.log("Coupon ==> ", coupon);
     if (coupon.endDate && new Date() > coupon.endDate) {
       return { valid: false, message: "Coupon has expired" };
     }
@@ -1219,6 +1371,59 @@ export class CheckoutService {
       }
     }
 
+    // Check category and product restrictions
+    if (
+      (coupon.applicableCategories && coupon.applicableCategories.length > 0) ||
+      (coupon.applicableProducts && coupon.applicableProducts.length > 0)
+    ) {
+      let hasApplicableItems = false;
+
+      for (const item of items) {
+        // Get product with categories for validation
+        const product = await this.productRepository.findOne({
+          where: { id: item.productId },
+          relations: ["categories"],
+        });
+
+        if (!product) continue;
+
+        // Check if product is in applicable products list
+        if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+          if (coupon.applicableProducts.includes(item.productId)) {
+            hasApplicableItems = true;
+            break;
+          }
+        }
+
+        // Check if product's categories are in applicable categories list
+        if (
+          coupon.applicableCategories &&
+          coupon.applicableCategories.length > 0
+        ) {
+          const productCategoryIds =
+            product.categories?.map((cat) => cat.id) || [];
+          if (
+            productCategoryIds.some((catId) =>
+              coupon.applicableCategories.includes(catId)
+            )
+          ) {
+            hasApplicableItems = true;
+            break;
+          }
+        }
+      }
+
+      if (!hasApplicableItems) {
+        return {
+          valid: false,
+          message: "This coupon is not applicable to any items in your cart",
+        };
+      }
+    }
+
+    // TODO: Check per-user usage limit (would need order history)
+    // For now, we'll skip this check
+
     return { valid: true };
   }
 
@@ -1226,17 +1431,68 @@ export class CheckoutService {
     coupon: Coupon,
     items: any[]
   ): Promise<number> {
-    const totalAmount = items.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
-      0
-    );
+    // Calculate applicable amount (only for eligible items)
+    let applicableAmount = 0;
+
+    if (
+      (coupon.applicableCategories && coupon.applicableCategories.length > 0) ||
+      (coupon.applicableProducts && coupon.applicableProducts.length > 0)
+    ) {
+      // Only apply to eligible items
+      for (const item of items) {
+        const product = await this.productRepository.findOne({
+          where: { id: item.productId },
+          relations: ["categories"],
+        });
+
+        if (!product) continue;
+
+        let isEligible = false;
+
+        // Check if product is in applicable products list
+        if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+          if (coupon.applicableProducts.includes(item.productId)) {
+            isEligible = true;
+          }
+        }
+
+        // Check if product's categories are in applicable categories list
+        if (
+          coupon.applicableCategories &&
+          coupon.applicableCategories.length > 0
+        ) {
+          const productCategoryIds =
+            product.categories?.map((cat) => cat.id) || [];
+          if (
+            productCategoryIds.some((catId) =>
+              coupon.applicableCategories.includes(catId)
+            )
+          ) {
+            isEligible = true;
+          }
+        }
+
+        if (isEligible) {
+          applicableAmount += item.unitPrice * item.quantity;
+        }
+      }
+    } else {
+      // Apply to all items if no restrictions
+      applicableAmount = items.reduce(
+        (sum, item) => sum + item.unitPrice * item.quantity,
+        0
+      );
+    }
 
     let discountAmount = 0;
 
     if (coupon.type === COUPON_TYPE.PERCENTAGE) {
-      discountAmount = (totalAmount * coupon.value) / 100;
+      discountAmount = (applicableAmount * coupon.value) / 100;
     } else if (coupon.type === COUPON_TYPE.FIXED_AMOUNT) {
-      discountAmount = coupon.value;
+      discountAmount = Math.min(coupon.value, applicableAmount);
+    } else if (coupon.type === COUPON_TYPE.FREE_SHIPPING) {
+      // Free shipping discount amount is handled separately
+      discountAmount = 0;
     }
 
     // Apply maximum discount limit
@@ -1488,7 +1744,6 @@ export class CheckoutService {
     userId?: string,
     guestId?: string
   ): Promise<any[]> {
-    console.log("Userr ==> ", userId);
     try {
       let cartItems: any[] = [];
 
