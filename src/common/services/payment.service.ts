@@ -6,7 +6,7 @@ import { paymentConfig } from "../../config/payment.config";
 import {
   PAYMENT_METHOD,
   PAYMENT_STATUS,
-} from "@/modules/checkout/entities/order.enums";
+} from "../../modules/checkout/entities/order.enums";
 
 export interface PaymentRequest {
   amount: number;
