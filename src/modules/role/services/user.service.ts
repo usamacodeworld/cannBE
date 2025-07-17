@@ -1,5 +1,5 @@
 import { AppDataSource } from "../../../config/database";
-import { User } from "../entities/role.entity";
+import { User } from "../../user/user.entity";
 import { CreateUserDto } from "../dto/create-user.dto";
 import { UserResponseDto } from "../dto/user-response.dto";
 import { GetUsersQueryDto } from "../dto/get-users-query.dto";

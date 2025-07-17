@@ -5,6 +5,7 @@ export const RES_CODE_MSG = {
   INVALID_TOKEN_SIGNATURE: "Invalid token signature.",
   TOKEN_EXPIRED: "Token expired.",
   INVALID_USER_OR_PASS: "Invalid username or password.",
+  SESSION_EXPIRED: "Session expired. Please log in again.",
   // NOTE: HTTP Response Code
   "200": "Success",
   "204": "No Content",

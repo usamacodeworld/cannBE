@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { User } from "../../user/entities/user.entity";
+import { User } from "../../user/user.entity";
 import { RES_CODE } from "../../../constants/responseCode";
-import { verifyToken } from "../../../libs/jwt";
+import { verifyToken, getAccessToken, getRefreshToken } from "../../../libs/jwt";
 import { AppDataSource } from "../../../config/database";
+import { UserInfo } from "@/types/auth";
+import { AuthService } from "../services/auth.service";
 
 declare global {
   namespace Express {
@@ -12,19 +14,20 @@ declare global {
   }
 }
 
-export const authenticate = async (req: Request, _: Response, next: NextFunction) => {
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const header = req.headers.authorization || "";
+  const accessToken = header.split("Bearer ")[1];
+  const refreshToken = req.headers["x-refresh-token"] as string;
+
+  if (!accessToken) {
+    // No token provided, continue without authentication (guest user)
+    req.user = undefined;
+    return next();
+  }
+
   try {
-    const header = req.headers.authorization || "";
-    const accessToken = header.split("Bearer ")[1];
-
-    if (!accessToken) {
-      return next(new Error(RES_CODE.NO_TOKEN_PROVIDED));
-    }
-
     // Verify the access token
     const decoded = verifyToken(accessToken);
-
-    // Get the user from the database with roles and permissions
     const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOne({
       where: { id: decoded.id },
@@ -32,25 +35,166 @@ export const authenticate = async (req: Request, _: Response, next: NextFunction
     });
 
     if (!user) {
-      return next(new Error(RES_CODE["401"]));
+      // User not found, continue without authentication (guest user)
+      req.user = undefined;
+      return next();
     }
 
-    // Attach the user to the request
     req.user = user;
     return next();
   } catch (error) {
-    console.error("Authentication error:", error);
-    
-    if (error instanceof Error) {
-      if (error.message === "Token expired") {
-        return next(new Error(RES_CODE.TOKEN_EXPIRED));
-      }
-      if (error.message === "Invalid token") {
-        return next(new Error(RES_CODE.INVALID_TOKEN_SIGNATURE));
+    if (error instanceof Error && error.message === "Token expired") {
+      // Try to refresh the token if refresh token is provided
+      if (refreshToken) {
+        try {
+          const authService = new AuthService();
+          const newTokens = await authService.refreshToken(refreshToken);
+          
+          // Set new tokens in response headers
+          res.setHeader('X-New-Access-Token', newTokens.accessToken);
+          res.setHeader('X-New-Refresh-Token', newTokens.refreshToken);
+          
+          // Get user info from the new access token
+          const newDecoded = verifyToken(newTokens.accessToken);
+          const userRepository = AppDataSource.getRepository(User);
+          const user = await userRepository.findOne({
+            where: { id: newDecoded.id },
+            relations: ['roles', 'roles.permissions']
+          });
+
+          if (!user) {
+            // User not found, continue without authentication (guest user)
+            req.user = undefined;
+            return next();
+          }
+
+          req.user = user;
+          return next();
+        } catch (refreshError) {
+          // Refresh token is also invalid, continue without authentication (guest user)
+          req.user = undefined;
+          return next();
+        }
+      } else {
+        // No refresh token provided, continue without authentication (guest user)
+        req.user = undefined;
+        return next();
       }
     }
     
-    return next(new Error(RES_CODE.INVALID_TOKEN_SIGNATURE));
+    if (error instanceof Error && error.message === "Invalid token") {
+      // Invalid token, continue without authentication (guest user)
+      req.user = undefined;
+      return next();
+    }
+
+    return next(error);
+  }
+};
+
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+  const header = req.headers.authorization || "";
+  const accessToken = header.split("Bearer ")[1];
+  const refreshToken = req.headers["x-refresh-token"] as string;
+
+  if (!accessToken) {
+    // Store auth error in res.locals for logging
+    res.locals.authError = {
+      type: "NO_TOKEN_PROVIDED",
+      message: RES_CODE.NO_TOKEN_PROVIDED
+    };
+    res.status(401).json({ message: RES_CODE.NO_TOKEN_PROVIDED, code: 1 });
+    return;
+  }
+
+  try {
+    // Verify the access token
+    const decoded = verifyToken(accessToken);
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: decoded.id },
+      relations: ['roles', 'roles.permissions']
+    });
+
+    if (!user) {
+      // Store auth error in res.locals for logging
+      res.locals.authError = {
+        type: "USER_NOT_FOUND",
+        message: RES_CODE["401"],
+        userId: decoded.id
+      };
+      res.status(401).json({ message: RES_CODE["401"], code: 1 });
+      return;
+    }
+
+    req.user = user;
+    return next();
+  } catch (error) {
+    if (error instanceof Error && error.message === "Token expired") {
+      // Try to refresh the token if refresh token is provided
+      if (refreshToken) {
+        try {
+          const authService = new AuthService();
+          const newTokens = await authService.refreshToken(refreshToken);
+          
+          // Set new tokens in response headers
+          res.setHeader('X-New-Access-Token', newTokens.accessToken);
+          res.setHeader('X-New-Refresh-Token', newTokens.refreshToken);
+          
+          // Get user info from the new access token
+          const newDecoded = verifyToken(newTokens.accessToken);
+          const userRepository = AppDataSource.getRepository(User);
+          const user = await userRepository.findOne({
+            where: { id: newDecoded.id },
+            relations: ['roles', 'roles.permissions']
+          });
+
+          if (!user) {
+            res.status(401).json({ message: RES_CODE["401"], code: 1 });
+            return;
+          }
+
+          req.user = user;
+          return next();
+        } catch (refreshError) {
+          // Refresh token is also invalid, return 401
+          res.locals.authError = {
+            type: "REFRESH_TOKEN_INVALID",
+            message: RES_CODE.TOKEN_EXPIRED
+          };
+          res.status(401).json({ 
+            message: RES_CODE.TOKEN_EXPIRED, 
+            code: 1,
+            requiresReauth: true 
+          });
+          return;
+        }
+      } else {
+        // No refresh token provided, return 401 with indication that refresh token is needed
+        res.locals.authError = {
+          type: "TOKEN_EXPIRED_NO_REFRESH",
+          message: RES_CODE.TOKEN_EXPIRED
+        };
+        res.status(401).json({ 
+          message: RES_CODE.TOKEN_EXPIRED, 
+          code: 1,
+          requiresRefreshToken: true 
+        });
+        return;
+      }
+    }
+    
+    if (error instanceof Error && error.message === "Invalid token") {
+      // Store auth error in res.locals for logging
+      res.locals.authError = {
+        type: "INVALID_TOKEN_SIGNATURE",
+        message: RES_CODE.INVALID_TOKEN_SIGNATURE
+      };
+      res.status(401).json({ message: RES_CODE.INVALID_TOKEN_SIGNATURE, code: 1 });
+      return;
+    }
+
+    return next(error);
   }
 };
 

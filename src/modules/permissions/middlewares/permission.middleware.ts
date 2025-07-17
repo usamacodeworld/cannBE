@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { PERMISSION_TYPE } from '../entities/permission.entity';
-import { User } from '../../user/entities/user.entity';
+import { User } from '../../user/user.entity';
 import { getResponseAPI } from '../../../common/getResponseAPI';
 import { RES_CODE } from '../../../constants/responseCode';
 
 export const requirePermissions = (requiredPermissions: PERMISSION_TYPE[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const user = req.user as User;
+    const user = (req as any).user as User;
     
     if (!user) {
       res.status(401).json(
@@ -25,9 +25,9 @@ export const requirePermissions = (requiredPermissions: PERMISSION_TYPE[]) => {
     const userPermissions = new Set<PERMISSION_TYPE>();
     
     // Collect all permissions from user's roles
-    user.roles.forEach(role => {
+    user.roles.forEach((role: any) => {
       if (role.permissions) {
-        role.permissions.forEach(permission => {
+        role.permissions.forEach((permission: any) => {
           userPermissions.add(permission.name);
         });
       }

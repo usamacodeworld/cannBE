@@ -10,6 +10,13 @@ export enum PERMISSION_TYPE {
   DELETE_PRODUCT = "delete:product",
   MANAGE_PRODUCT_CATEGORIES = "manage:product:categories",
 
+  // Category permissions
+  CREATE_CATEGORY = "create:category",
+  READ_CATEGORY = "read:category",
+  UPDATE_CATEGORY = "update:category",
+  DELETE_CATEGORY = "delete:category",
+  MANAGE_CATEGORIES = "manage:categories",
+
   // Order permissions
   CREATE_ORDER = "create:order",
   READ_ORDER = "read:order",
