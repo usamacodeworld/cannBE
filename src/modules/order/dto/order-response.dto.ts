@@ -2,7 +2,7 @@ import {
   ORDER_STATUS,
   PAYMENT_METHOD,
   PAYMENT_STATUS,
-} from "@/modules/checkout/entities/order.enums";
+} from "../../../modules/checkout/entities/order.enums";
 
 export class OrderItemResponseDto {
   productId: string;

@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { paymentConfig } from "../../config/payment.config";
 import { Order } from "../../modules/checkout/entities/order.entity";
-import { ORDER_STATUS } from "@/modules/checkout/entities/order.enums";
+import { ORDER_STATUS } from "../../modules/checkout/entities/order.enums";
 
 export interface EmailData {
   order: Order;
