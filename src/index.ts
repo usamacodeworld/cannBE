@@ -58,7 +58,7 @@ app.use(
     res.locals.error = {
       message: err.message,
       stack: err.stack,
-      name: err.name
+      name: err.name,
     };
 
     // Determine status code
@@ -70,22 +70,47 @@ app.use(
     }
 
     // Send error response
-    res.status(statusCode).json({ 
+    res.status(statusCode).json({
       message: err.message || "Something went wrong!",
       status: "error",
       code: statusCode,
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
   }
 );
 
 // Initialize TypeORM and Redis
-Promise.all([
-  AppDataSource.initialize(),
-  redis.connect()
-])
+Promise.all([AppDataSource.initialize(), redis.connect()])
   .then(() => {
     console.log("✅ Database connected successfully");
+
+    // 🔍 Debug: List loaded entities and detect broken enums
+    console.log("📦 Loaded Entities and Columns:\n");
+
+    AppDataSource.entityMetadatas.forEach((meta) => {
+      console.log(`🔸 Entity: ${meta.name} (table: ${meta.tableName})`);
+
+      meta.columns.forEach((col) => {
+        const line = `   • ${col.propertyName} (${col.type})`;
+
+        // Enum inspection
+        if (col.type === "enum") {
+          if (!col.enum || typeof col.enum !== "object") {
+            console.warn(
+              `   ⚠️  Enum is undefined or broken in column: ${col.propertyName}`
+            );
+          } else {
+            const values = Object.values(col.enum).join(", ");
+            console.log(`${line} — ✅ enum values: ${values}`);
+          }
+        } else {
+          console.log(line);
+        }
+      });
+
+      console.log(""); // Line break between entities
+    });
+
     console.log("✅ Redis connected successfully");
 
     // Start servers

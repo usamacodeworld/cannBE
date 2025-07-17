@@ -1,6 +1,14 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsEmail, IsUUID, ValidateNested } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { PAYMENT_METHOD } from '../entities/order.entity';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsEmail,
+  IsUUID,
+  ValidateNested,
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { PAYMENT_METHOD } from "../entities/order.enums";
 
 export class CustomerInfoDto {
   @IsEmail()
@@ -82,8 +90,8 @@ export class ConfirmOrderDto {
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }: { value: any }) => {
-    if (typeof value === 'string') {
-      return value === 'true' || value === '1';
+    if (typeof value === "string") {
+      return value === "true" || value === "1";
     }
     return value;
   })
@@ -92,10 +100,10 @@ export class ConfirmOrderDto {
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }: { value: any }) => {
-    if (typeof value === 'string') {
-      return value === 'true' || value === '1';
+    if (typeof value === "string") {
+      return value === "true" || value === "1";
     }
     return value;
   })
   emailNotifications?: boolean;
-} 
+}
