@@ -1,10 +1,11 @@
-import nodemailer from 'nodemailer';
-import handlebars from 'handlebars';
-import PDFDocument from 'pdfkit';
-import fs from 'fs';
-import path from 'path';
-import { paymentConfig } from '../../config/payment.config';
-import { Order, ORDER_STATUS } from '../../modules/checkout/entities/order.entity';
+import nodemailer from "nodemailer";
+import handlebars from "handlebars";
+import PDFDocument from "pdfkit";
+import fs from "fs";
+import path from "path";
+import { paymentConfig } from "../../config/payment.config";
+import { Order } from "../../modules/checkout/entities/order.entity";
+import { ORDER_STATUS } from "@/modules/checkout/entities/order.enums";
 
 export interface EmailData {
   order: Order;
@@ -30,9 +31,12 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    if (process.env.NODE_ENV === 'development' || process.env.USE_ETHEREAL === 'true') {
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.USE_ETHEREAL === "true"
+    ) {
       // Use Ethereal for testing
-      nodemailer.createTestAccount().then(testAccount => {
+      nodemailer.createTestAccount().then((testAccount) => {
         this.transporter = nodemailer.createTransport({
           host: testAccount.smtp.host,
           port: testAccount.smtp.port,
@@ -42,8 +46,8 @@ export class EmailService {
             pass: testAccount.pass,
           },
         });
-        console.log('Ethereal test account created. Login:', testAccount.user);
-        console.log('Ethereal test account password:', testAccount.pass);
+        console.log("Ethereal test account created. Login:", testAccount.user);
+        console.log("Ethereal test account password:", testAccount.pass);
       });
     } else {
       this.transporter = nodemailer.createTransport({
@@ -52,8 +56,8 @@ export class EmailService {
         secure: paymentConfig.email.secure,
         auth: {
           user: paymentConfig.email.user,
-          pass: paymentConfig.email.pass
-        }
+          pass: paymentConfig.email.pass,
+        },
       });
     }
   }
@@ -67,17 +71,20 @@ export class EmailService {
         from: paymentConfig.email.from,
         to: data.customerEmail,
         subject,
-        html
+        html,
       });
 
       return true;
     } catch (error) {
-      console.error('Send order confirmation error:', error);
+      console.error("Send order confirmation error:", error);
       return false;
     }
   }
 
-  async sendOrderStatusUpdate(data: EmailData, status: ORDER_STATUS): Promise<boolean> {
+  async sendOrderStatusUpdate(
+    data: EmailData,
+    status: ORDER_STATUS
+  ): Promise<boolean> {
     try {
       let subject: string;
       let html: string;
@@ -107,12 +114,12 @@ export class EmailService {
         from: paymentConfig.email.from,
         to: data.customerEmail,
         subject,
-        html
+        html,
       });
 
       return true;
     } catch (error) {
-      console.error('Send order status update error:', error);
+      console.error("Send order status update error:", error);
       return false;
     }
   }
@@ -143,23 +150,33 @@ export class EmailService {
           
           <div class="order-details">
             <h2>Order #${data.orderNumber}</h2>
-            <p><strong>Date:</strong> ${new Date(data.order.createdAt).toLocaleDateString()}</p>
+            <p><strong>Date:</strong> ${new Date(
+              data.order.createdAt
+            ).toLocaleDateString()}</p>
             <p><strong>Customer:</strong> ${data.customerName}</p>
             <p><strong>Email:</strong> ${data.customerEmail}</p>
             
             <h3>Items Ordered:</h3>
-            ${data.items.map(item => `
+            ${data.items
+              .map(
+                (item) => `
               <div class="item">
                 <strong>${item.productName}</strong><br>
                 Quantity: ${item.quantity} | Price: $${item.unitPrice} | Total: $${item.totalPrice}
               </div>
-            `).join('')}
+            `
+              )
+              .join("")}
             
             <div class="total">
               <p>Subtotal: $${data.order.subtotal}</p>
               <p>Tax: $${data.order.taxAmount}</p>
               <p>Shipping: $${data.order.shippingAmount}</p>
-              ${data.order.discountAmount > 0 ? `<p>Discount: -$${data.order.discountAmount}</p>` : ''}
+              ${
+                data.order.discountAmount > 0
+                  ? `<p>Discount: -$${data.order.discountAmount}</p>`
+                  : ""
+              }
               <p><strong>Total: $${data.order.totalAmount}</strong></p>
             </div>
           </div>
@@ -198,13 +215,29 @@ export class EmailService {
           
           <div class="tracking">
             <h3>Tracking Information:</h3>
-            ${data.trackingNumber ? `<p><strong>Tracking Number:</strong> ${data.trackingNumber}</p>` : ''}
-            ${data.estimatedDelivery ? `<p><strong>Estimated Delivery:</strong> ${data.estimatedDelivery.toLocaleDateString()}</p>` : ''}
+            ${
+              data.trackingNumber
+                ? `<p><strong>Tracking Number:</strong> ${data.trackingNumber}</p>`
+                : ""
+            }
+            ${
+              data.estimatedDelivery
+                ? `<p><strong>Estimated Delivery:</strong> ${data.estimatedDelivery.toLocaleDateString()}</p>`
+                : ""
+            }
             <p><strong>Shipping Address:</strong></p>
-            <p>${data.shippingAddress.firstName} ${data.shippingAddress.lastName}<br>
+            <p>${data.shippingAddress.firstName} ${
+      data.shippingAddress.lastName
+    }<br>
             ${data.shippingAddress.addressLine1}<br>
-            ${data.shippingAddress.addressLine2 ? `${data.shippingAddress.addressLine2}<br>` : ''}
-            ${data.shippingAddress.city}, ${data.shippingAddress.state} ${data.shippingAddress.postalCode}<br>
+            ${
+              data.shippingAddress.addressLine2
+                ? `${data.shippingAddress.addressLine2}<br>`
+                : ""
+            }
+            ${data.shippingAddress.city}, ${data.shippingAddress.state} ${
+      data.shippingAddress.postalCode
+    }<br>
             ${data.shippingAddress.country}</p>
           </div>
           
@@ -318,8 +351,6 @@ export class EmailService {
       </html>
     `;
   }
-
-
 }
 
-export const emailService = new EmailService(); 
+export const emailService = new EmailService();

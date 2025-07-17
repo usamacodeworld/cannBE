@@ -1,9 +1,9 @@
+import { COUPON_TYPE } from "../../coupon/coupon.entity";
 import {
   ORDER_STATUS,
-  PAYMENT_STATUS,
   PAYMENT_METHOD,
-} from "../entities/order.entity";
-import { COUPON_TYPE } from "../../coupon/coupon.entity";
+  PAYMENT_STATUS,
+} from "../entities/order.enums";
 
 export class CheckoutSummaryDto {
   subtotal: number;

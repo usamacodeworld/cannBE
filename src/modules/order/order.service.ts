@@ -1,6 +1,7 @@
 import { Repository, Like } from "typeorm";
-import { Order, ORDER_STATUS } from "../checkout/entities/order.entity";
+import { Order } from "../checkout/entities/order.entity";
 import { GetOrdersQueryDto } from "./dto/get-orders-query.dto";
+import { ORDER_STATUS } from "../checkout/entities/order.enums";
 
 export class OrderService {
   constructor(private orderRepository: Repository<Order>) {}
@@ -31,8 +32,16 @@ export class OrderService {
     });
   }
 
-  async updateOrderStatus(id: string, status: ORDER_STATUS, notes?: string, changedBy?: string) {
-    const order = await this.orderRepository.findOne({ where: { id }, relations: ["statusHistory"] });
+  async updateOrderStatus(
+    id: string,
+    status: ORDER_STATUS,
+    notes?: string,
+    changedBy?: string
+  ) {
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      relations: ["statusHistory"],
+    });
     if (!order) throw new Error("Order not found");
     const previousStatus = order.status;
     order.status = status;
@@ -70,7 +79,11 @@ export class OrderService {
       if (order.status === ORDER_STATUS.SHIPPED) stats.shipped++;
       if (order.status === ORDER_STATUS.DELIVERED) stats.delivered++;
       if (order.status === ORDER_STATUS.CANCELLED) stats.cancelled++;
-      if (order.status === ORDER_STATUS.DELIVERED || order.status === ORDER_STATUS.CONFIRMED || order.status === ORDER_STATUS.SHIPPED) {
+      if (
+        order.status === ORDER_STATUS.DELIVERED ||
+        order.status === ORDER_STATUS.CONFIRMED ||
+        order.status === ORDER_STATUS.SHIPPED
+      ) {
         stats.totalRevenue += Number(order.totalAmount);
       }
     }

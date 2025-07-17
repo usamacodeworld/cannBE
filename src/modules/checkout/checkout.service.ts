@@ -1,10 +1,5 @@
 import { Repository, DataSource } from "typeorm";
-import {
-  Order,
-  ORDER_STATUS,
-  PAYMENT_STATUS,
-  PAYMENT_METHOD,
-} from "./entities/order.entity";
+import { Order } from "./entities/order.entity";
 import { OrderItem } from "./entities/order-item.entity";
 import { OrderStatusHistory } from "./entities/order-status-history.entity";
 import { ShippingAddress } from "./entities/shipping-address.entity";
@@ -41,6 +36,11 @@ import { ShippingRate } from "../shipping/shipping-rate.entity";
 import { CategoryRestrictionService } from "../category-restrictions/category-restriction.service";
 import { CategoryStateRestriction } from "../category-restrictions/category-restriction.entity";
 import { ShippingMethod } from "../shipping/shipping-method.entity";
+import {
+  ORDER_STATUS,
+  PAYMENT_METHOD,
+  PAYMENT_STATUS,
+} from "./entities/order.enums";
 
 export class CheckoutService {
   private orderRepository: Repository<Order>;
