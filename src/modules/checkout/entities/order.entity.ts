@@ -1,39 +1,9 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
-import { User } from '../../user/user.entity';
-import { OrderItem } from './order-item.entity';
-import { OrderStatusHistory } from './order-status-history.entity';
-
-export enum ORDER_STATUS {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  PROCESSING = 'processing',
-  SHIPPED = 'shipped',
-  DELIVERED = 'delivered',
-  CANCELLED = 'cancelled',
-  REFUNDED = 'refunded',
-  RETURNED = 'returned'
-}
-
-export enum PAYMENT_STATUS {
-  PENDING = 'pending',
-  AUTHORIZED = 'authorized',
-  CAPTURED = 'captured',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled',
-  REFUNDED = 'refunded',
-  PARTIALLY_REFUNDED = 'partially_refunded'
-}
-
-export enum PAYMENT_METHOD {
-  CREDIT_CARD = 'credit_card',
-  DEBIT_CARD = 'debit_card',
-  PAYPAL = 'paypal',
-  STRIPE = 'stripe',
-  CASH_ON_DELIVERY = 'cash_on_delivery',
-  BANK_TRANSFER = 'bank_transfer',
-  WALLET = 'wallet'
-}
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from "typeorm";
+import { BaseEntity } from "../../../common/entities/base.entity";
+import { User } from "../../user/user.entity";
+import { OrderItem } from "./order-item.entity";
+import { OrderStatusHistory } from "./order-status-history.entity";
+import { ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS } from "./order.enums";
 
 export interface ShippingAddress {
   firstName: string;
@@ -52,7 +22,7 @@ export interface BillingAddress extends ShippingAddress {
   sameAsShipping?: boolean;
 }
 
-@Entity('orders')
+@Entity("orders")
 export class Order extends BaseEntity {
   @Column({ unique: true })
   orderNumber: string;
@@ -64,57 +34,57 @@ export class Order extends BaseEntity {
   guestId: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: ORDER_STATUS,
-    enumName: 'order_status_enum',
-    default: ORDER_STATUS.PENDING
+    enumName: "order_status_enum",
+    default: ORDER_STATUS.PENDING,
   })
   status: ORDER_STATUS;
 
   // Financial Information
-  @Column('decimal', { precision: 10, scale: 2 })
+  @Column("decimal", { precision: 10, scale: 2 })
   subtotal: number;
 
-  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
   taxAmount: number;
 
-  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
   shippingAmount: number;
 
-  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
   discountAmount: number;
 
-  @Column('decimal', { precision: 10, scale: 2 })
+  @Column("decimal", { precision: 10, scale: 2 })
   totalAmount: number;
 
   // Payment Information
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: PAYMENT_STATUS,
-    enumName: 'payment_status_enum',
-    default: PAYMENT_STATUS.PENDING
+    enumName: "payment_status_enum",
+    default: PAYMENT_STATUS.PENDING,
   })
   paymentStatus: PAYMENT_STATUS;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: PAYMENT_METHOD,
-    enumName: 'payment_method_enum',
-    nullable: true
+    enumName: "payment_method_enum",
+    nullable: true,
   })
   paymentMethod: PAYMENT_METHOD;
 
   @Column({ nullable: true })
   paymentTransactionId: string;
 
-  @Column('text', { nullable: true })
+  @Column("text", { nullable: true })
   paymentGatewayResponse: string;
 
   // Shipping Information
-  @Column('simple-json')
+  @Column("simple-json")
   shippingAddress: ShippingAddress;
 
-  @Column('simple-json', { nullable: true })
+  @Column("simple-json", { nullable: true })
   billingAddress: BillingAddress;
 
   @Column({ nullable: true })
@@ -130,10 +100,10 @@ export class Order extends BaseEntity {
   actualDeliveryDate: Date;
 
   // Additional Information
-  @Column('text', { nullable: true })
+  @Column("text", { nullable: true })
   notes: string;
 
-  @Column('text', { nullable: true })
+  @Column("text", { nullable: true })
   adminNotes: string;
 
   @Column({ nullable: true })
@@ -163,12 +133,14 @@ export class Order extends BaseEntity {
 
   // Relationships
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: "userId" })
   user?: User;
 
-  @OneToMany(() => OrderItem, orderItem => orderItem.order, { cascade: true })
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.order, { cascade: true })
   items: OrderItem[];
 
-  @OneToMany(() => OrderStatusHistory, history => history.order, { cascade: true })
+  @OneToMany(() => OrderStatusHistory, (history) => history.order, {
+    cascade: true,
+  })
   statusHistory: OrderStatusHistory[];
-} 
+}

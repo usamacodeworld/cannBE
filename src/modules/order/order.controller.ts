@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { OrderService } from "./order.service";
 import { GetOrdersQueryDto } from "./dto/get-orders-query.dto";
-import { ORDER_STATUS } from "../checkout/entities/order.entity";
+import { ORDER_STATUS } from "../checkout/entities/order.enums";
 
 export function orderController(orderService: OrderService) {
   return {
