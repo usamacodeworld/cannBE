@@ -3,13 +3,13 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./config/database";
-import { redis } from "./config/redis";
+// import { redis } from "./config/redis";
 import { Router as V1Router } from "./apiV1.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
 import guestMigrationRoutes from "./modules/guest-migration/guest-migration.routes";
-import { requestLogger } from "./common/middlewares/request-logger.middleware";
-import { filtersToWhereJson } from "./common/middlewares/filtersToWhereJson";
-import qs from "qs";
+// import { requestLogger } from "./common/middlewares/request-logger.middleware";
+// import { filtersToWhereJson } from "./common/middlewares/filtersToWhereJson";
+// import qs from "qs";
 
 dotenv.config();
 
@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(requestLogger);
+// app.use(requestLogger);
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -80,36 +80,12 @@ app.use(
 );
 
 // Initialize TypeORM and Redis
-Promise.all([AppDataSource.initialize(), redis.connect()])
+Promise.all([
+  AppDataSource.initialize(),
+  //  redis.connect()
+])
   .then(() => {
     console.log("✅ Database connected successfully");
-
-    // 🔍 Debug: List loaded entities and detect broken enums
-    console.log("📦 Loaded Entities and Columns:\n");
-
-    AppDataSource.entityMetadatas.forEach((meta) => {
-      console.log(`🔸 Entity: ${meta.name} (table: ${meta.tableName})`);
-
-      meta.columns.forEach((col) => {
-        const line = `   • ${col.propertyName} (${col.type})`;
-
-        // Enum inspection
-        if (col.type === "enum") {
-          if (!col.enum || typeof col.enum !== "object") {
-            console.warn(
-              `   ⚠️  Enum is undefined or broken in column: ${col.propertyName}`
-            );
-          } else {
-            const values = Object.values(col.enum).join(", ");
-            console.log(`${line} — ✅ enum values: ${values}`);
-          }
-        } else {
-          console.log(line);
-        }
-      });
-
-      console.log(""); // Line break between entities
-    });
 
     console.log("✅ Redis connected successfully");
 
@@ -119,13 +95,24 @@ Promise.all([AppDataSource.initialize(), redis.connect()])
     const HOST_IP = process.env.HOST_IP || "192.168.100.79";
 
     // Start server on IP address
-    app.listen(PORT_IP, HOST_IP, () => {
-      console.log(`🚀 Server is running on http://${HOST_IP}:${PORT_IP}`);
-    });
+    // app.listen(PORT_IP, HOST_IP, () => {
+    //   console.log(`🚀 Server is running on http://${HOST_IP}:${PORT_IP}`);
+    // });
 
     // Start server on localhost
-    app.listen(PORT_LOCAL, "localhost", () => {
-      console.log(`🚀 Server is running on http://localhost:${PORT_LOCAL}`);
+    // app.listen(PORT_LOCAL, "localhost", () => {
+    //   console.log(`🚀 Server is running on http://localhost:${PORT_LOCAL}`);
+    // });
+    const server = app.listen(PORT, () => {
+      const address = server.address();
+      if (typeof address === "string") {
+        console.log(`🚀 Server is running on ${address}`);
+      } else {
+        console.log(`🚀 Server is running on:
+    - http://localhost:${address?.port}
+    - http://${HOST_IP}:${address?.port}
+    - http://127.0.0.1:${address?.port}`);
+      }
     });
   })
   .catch((error) => {

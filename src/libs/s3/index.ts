@@ -1,23 +1,39 @@
-import AWS from "aws-sdk";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  GetObjectCommand,
+  type HeadObjectOutput,
+  type _Object,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { cuid } from "../cuid";
+import type { Express } from "express";
+
+// Validate environment variables before proceeding
+if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+  throw new Error("AWS credentials are missing from environment variables");
+}
 
 const awsConfig = {
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION || "us-east-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 };
 
 console.log("AWS Config:", {
-  accessKeyId: awsConfig.accessKeyId
-    ? `${awsConfig.accessKeyId.substring(0, 10)}...`
+  accessKeyId: awsConfig.credentials.accessKeyId
+    ? `${awsConfig.credentials.accessKeyId.substring(0, 10)}...`
     : "NOT SET",
   region: awsConfig.region,
   bucketName: process.env.AWS_BUCKET_NAME || "cannbe-files-v1",
 });
 
-AWS.config.update(awsConfig);
-
-const s3 = new AWS.S3();
+const s3Client = new S3Client(awsConfig);
 const bucketName = process.env.AWS_BUCKET_NAME || "cannbe-files-v1";
 
 export interface S3UploadResult {
@@ -38,18 +54,12 @@ export interface S3FileInfo {
 
 export class S3Service {
   private bucketName: string;
-  private s3Instance: AWS.S3;
+  private s3: S3Client;
 
   constructor(bucketName?: string) {
     this.bucketName =
       bucketName || process.env.AWS_BUCKET_NAME || "cannbe-files-v1";
-
-    // Create a new S3 instance with explicit credentials
-    this.s3Instance = new AWS.S3({
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      region: process.env.AWS_REGION || "us-east-1",
-    });
+    this.s3 = new S3Client(awsConfig);
   }
 
   /**
@@ -60,33 +70,35 @@ export class S3Service {
     folder: string = "uploads",
     customFileName?: string
   ): Promise<S3UploadResult> {
+    const fileExtension = file.originalname.split(".").pop();
+    const fileName = customFileName || `${cuid()}.${fileExtension}`;
+    const key = `${folder}/${fileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      Metadata: {
+        originalName: file.originalname,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
     try {
-      const fileExtension = file.originalname.split(".").pop();
-      const fileName = customFileName || `${cuid()}.${fileExtension}`;
-      const key = `${folder}/${fileName}`;
-
-      const uploadParams = {
-        Bucket: this.bucketName,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        Metadata: {
-          originalName: file.originalname,
-          uploadedAt: new Date().toISOString(),
-        },
-      };
-
-      const result = await this.s3Instance.upload(uploadParams).promise();
+      await this.s3.send(command);
 
       return {
-        key: result.Key,
-        url: result.Location,
-        bucket: result.Bucket,
+        key,
+        url: `https://${this.bucketName}.s3.${awsConfig.region}.amazonaws.com/${key}`,
+        bucket: this.bucketName,
         size: file.size,
         mimetype: file.mimetype,
       };
     } catch (error) {
-      throw new Error(`Failed to upload file to S3: ${error}`);
+      throw new Error(
+        `Failed to upload file to S3: ${(error as Error).message}`
+      );
     }
   }
 
@@ -114,7 +126,7 @@ export class S3Service {
       const finalFileName = fileName || `${cuid()}.${extension}`;
       const key = `${folder}/${finalFileName}`;
 
-      const uploadParams = {
+      const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: buffer,
@@ -122,19 +134,21 @@ export class S3Service {
         Metadata: {
           uploadedAt: new Date().toISOString(),
         },
-      };
+      });
 
-      const result = await this.s3Instance.upload(uploadParams).promise();
+      await this.s3.send(command);
 
       return {
-        key: result.Key,
-        url: result.Location,
-        bucket: result.Bucket,
+        key,
+        url: `https://${this.bucketName}.s3.${awsConfig.region}.amazonaws.com/${key}`,
+        bucket: this.bucketName,
         size: buffer.length,
-        mimetype: mimetype,
+        mimetype,
       };
     } catch (error) {
-      throw new Error(`Failed to upload base64 image to S3: ${error}`);
+      throw new Error(
+        `Failed to upload base64 image to S3: ${(error as Error).message}`
+      );
     }
   }
 
@@ -143,15 +157,17 @@ export class S3Service {
    */
   async deleteFile(key: string): Promise<boolean> {
     try {
-      const deleteParams = {
+      const command = new DeleteObjectCommand({
         Bucket: this.bucketName,
         Key: key,
-      };
+      });
 
-      await this.s3Instance.deleteObject(deleteParams).promise();
+      await this.s3.send(command);
       return true;
     } catch (error) {
-      throw new Error(`Failed to delete file from S3: ${error}`);
+      throw new Error(
+        `Failed to delete file from S3: ${(error as Error).message}`
+      );
     }
   }
 
@@ -160,25 +176,25 @@ export class S3Service {
    */
   async getFileInfo(key: string): Promise<S3FileInfo | null> {
     try {
-      const headParams = {
+      const command = new HeadObjectCommand({
         Bucket: this.bucketName,
         Key: key,
-      };
+      });
 
-      const result = await this.s3Instance.headObject(headParams).promise();
+      const result: HeadObjectOutput = await this.s3.send(command);
 
       return {
         key: key,
-        url: `https://${this.bucketName}.s3.amazonaws.com/${key}`,
+        url: `https://${this.bucketName}.s3.${awsConfig.region}.amazonaws.com/${key}`,
         size: result.ContentLength || 0,
         lastModified: result.LastModified || new Date(),
         mimetype: result.ContentType || "application/octet-stream",
       };
-    } catch (error) {
-      if ((error as any).code === "NotFound") {
+    } catch (error: any) {
+      if (error.name === "NotFound") {
         return null;
       }
-      throw new Error(`Failed to get file info from S3: ${error}`);
+      throw new Error(`Failed to get file info from S3: ${error.message}`);
     }
   }
 
@@ -190,23 +206,25 @@ export class S3Service {
     maxKeys: number = 100
   ): Promise<S3FileInfo[]> {
     try {
-      const listParams = {
+      const command = new ListObjectsV2Command({
         Bucket: this.bucketName,
         Prefix: prefix,
         MaxKeys: maxKeys,
-      };
+      });
 
-      const result = await this.s3Instance.listObjectsV2(listParams).promise();
+      const result = await this.s3.send(command);
 
-      return (result.Contents || []).map((item) => ({
+      return (result.Contents || []).map((item: _Object) => ({
         key: item.Key || "",
-        url: `https://${this.bucketName}.s3.amazonaws.com/${item.Key}`,
+        url: `https://${this.bucketName}.s3.${awsConfig.region}.amazonaws.com/${item.Key}`,
         size: item.Size || 0,
         lastModified: item.LastModified || new Date(),
-        mimetype: "application/octet-stream", // S3 listObjects doesn't return ContentType
+        mimetype: "application/octet-stream",
       }));
     } catch (error) {
-      throw new Error(`Failed to list files from S3: ${error}`);
+      throw new Error(
+        `Failed to list files from S3: ${(error as Error).message}`
+      );
     }
   }
 
@@ -219,16 +237,17 @@ export class S3Service {
     expiresIn: number = 3600
   ): Promise<string> {
     try {
-      const params = {
+      const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         ContentType: contentType,
-        Expires: expiresIn,
-      };
+      });
 
-      return await this.s3Instance.getSignedUrlPromise("putObject", params);
+      return await getSignedUrl(this.s3, command, { expiresIn });
     } catch (error) {
-      throw new Error(`Failed to generate presigned URL: ${error}`);
+      throw new Error(
+        `Failed to generate presigned URL: ${(error as Error).message}`
+      );
     }
   }
 
@@ -240,15 +259,16 @@ export class S3Service {
     expiresIn: number = 3600
   ): Promise<string> {
     try {
-      const params = {
+      const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key,
-        Expires: expiresIn,
-      };
+      });
 
-      return await this.s3Instance.getSignedUrlPromise("getObject", params);
+      return await getSignedUrl(this.s3, command, { expiresIn });
     } catch (error) {
-      throw new Error(`Failed to generate presigned download URL: ${error}`);
+      throw new Error(
+        `Failed to generate presigned download URL: ${(error as Error).message}`
+      );
     }
   }
 }
