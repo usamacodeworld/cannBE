@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc --project tsconfig.json && node scripts/fix-encoding.js",
+    "build": "tsc --build",
     "start": "node --no-warnings dist/index.js",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "migration:generate": "yarn typeorm migration:generate -- -d src/config/database.ts",

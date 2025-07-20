@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./config/database";
-// import { redis } from "./config/redis";
+import { redis } from "./config/redis";
 import { Router as V1Router } from "./apiV1.routes";
 import authRoutes from "./modules/auth/routes/auth.routes";
 import guestMigrationRoutes from "./modules/guest-migration/guest-migration.routes";
@@ -80,10 +80,7 @@ app.use(
 );
 
 // Initialize TypeORM and Redis
-Promise.all([
-  AppDataSource.initialize(),
-  //  redis.connect()
-])
+Promise.all([AppDataSource.initialize(), redis.connect()])
   .then(() => {
     console.log("✅ Database connected successfully");
 
