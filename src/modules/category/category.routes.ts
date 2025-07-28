@@ -17,6 +17,7 @@ const {
   createCategory,
   getCategories,
   getCategory,
+  getCategoriesUnristricted,
   getCategoryBySlug,
   updateCategory,
   deleteCategory,
@@ -39,6 +40,11 @@ router.get(
   authenticate,
   RequirePermissions(PERMISSION_TYPE.READ_CATEGORY),
   getCategories
+);
+
+router.get(
+  "/all/unristricted",
+  getCategoriesUnristricted
 );
 
 router.get(
