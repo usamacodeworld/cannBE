@@ -8,9 +8,9 @@ import { validateDto } from '../../common/middlewares/validation.middleware';
 import { CreateSellerDto } from './dto/create-seller.dto';
 import { UpdateSellerDto } from './dto/update-seller.dto';
 import { GetSellersQueryDto } from './dto/get-sellers-query.dto';
-import { authenticate } from '../auth/middlewares/auth.middleware';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { USER_TYPE } from '../../constants/user';
+// import { authenticate } from '../auth/middlewares/auth.middleware';
+// import { RolesGuard } from '../auth/guards/roles.guard';
+// import { USER_TYPE } from '../../constants/user';
 
 const router = Router();
 
@@ -29,7 +29,7 @@ router.get('/:id', controller.getSellerById);
 router.get('/user/:userId', controller.getSellerByUserId);
 
 // Protected routes - require authentication
-router.use(authenticate);
+// router.use(authenticate);
 
 // Seller dashboard routes (seller can access their own data)
 router.get('/profile/me', controller.getSellerByUserId);

@@ -3,6 +3,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const isCompiled = __dirname.includes("dist");
+
+const basePath = isCompiled ? "dist" : "src";
+const extension = isCompiled ? "js" : "ts";
+
 export const typeormConfig: DataSourceOptions = {
   type: "postgres",
   host: process.env.DB_HOST || "localhost",
@@ -13,32 +18,31 @@ export const typeormConfig: DataSourceOptions = {
   synchronize: process.env.NODE_ENV !== "production",
   logging: process.env.NODE_ENV !== "production",
   entities: [
-    "src/modules/**/entities/*.entity.ts",
-    "src/modules/role/entities/role.entity.ts",
-    "src/modules/permissions/entities/permission.entity.ts",
-    "src/modules/user/user.entity.ts",
-    "src/modules/category/category.entity.ts",
-    "src/modules/country/country.entity.ts",
-    "src/modules/attributes/entities/attribute.entity.ts",
-    "src/modules/attributes/entities/attribute-value.entity.ts",
-    "src/modules/products/entities/product.entity.ts",
-    "src/modules/products/entities/product-variant.entity.ts",
-    "src/modules/media/media-file.entity.ts",
-    "src/modules/cart/entities/cart.entity.ts",
-    "src/modules/checkout/entities/order.entity.ts",
-    "src/modules/checkout/entities/order-item.entity.ts",
-    "src/modules/checkout/entities/order-status-history.entity.ts",
-    "src/modules/checkout/entities/shipping-address.entity.ts",
-    "src/modules/checkout/entities/coupon.entity.ts",
-    "src/modules/address/address.entity.ts",
-    "src/modules/seller/seller.entity.ts",
-    "src/modules/shipping/shipping-zone.entity.ts",
-    "src/modules/shipping/shipping-method.entity.ts",
-    "src/modules/shipping/shipping-rate.entity.ts",
-    "src/modules/category-restrictions/category-restriction.entity.ts",
+    `${basePath}/modules/**/entities/*.entity.${extension}`,
+    `${basePath}/modules/role/entities/role.entity.${extension}`,
+    `${basePath}/modules/permissions/entities/permission.entity.${extension}`,
+    `${basePath}/modules/user/user.entity.${extension}`,
+    `${basePath}/modules/category/category.entity.${extension}`,
+    `${basePath}/modules/country/country.entity.${extension}`,
+    `${basePath}/modules/attributes/entities/attribute.entity.${extension}`,
+    `${basePath}/modules/attributes/entities/attribute-value.entity.${extension}`,
+    `${basePath}/modules/products/entities/product.entity.${extension}`,
+    `${basePath}/modules/media/media-file.entity.${extension}`,
+    `${basePath}/modules/cart/entities/cart.entity.${extension}`,
+    `${basePath}/modules/checkout/entities/order.entity.${extension}`,
+    `${basePath}/modules/checkout/entities/order-item.entity.${extension}`,
+    `${basePath}/modules/checkout/entities/order-status-history.entity.${extension}`,
+    `${basePath}/modules/checkout/entities/shipping-address.entity.${extension}`,
+    `${basePath}/modules/coupon/coupon.entity.${extension}`,
+    `${basePath}/modules/address/address.entity.${extension}`,
+    `${basePath}/modules/seller/entities/seller.entity.${extension}`,
+    `${basePath}/modules/shipping/shipping-zone.entity.${extension}`,
+    `${basePath}/modules/shipping/shipping-method.entity.${extension}`,
+    `${basePath}/modules/shipping/shipping-rate.entity.${extension}`,
+    `${basePath}/modules/category-restrictions/category-restriction.entity.${extension}`,
   ],
-  migrations: ["src/migrations/*.ts"],
-  subscribers: ["src/subscribers/*.ts"],
+  migrations: [`${basePath}/migrations/*.${extension}`],
+  subscribers: [`${basePath}/subscribers/*.${extension}`],
   ssl:
     process.env.DB_SSL === "true"
       ? {
