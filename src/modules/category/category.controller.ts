@@ -60,6 +60,47 @@ export function categoryController(categoryRepository: Repository<Category>) {
       }
     },
 
+    getCategoriesUnristricted: async (req: Request, res: Response) => {
+      try {
+        const query = req.query as unknown as GetCategoriesQueryDto;
+        const categories = await categoryService.findAll(query);
+
+        // Fetch parent details for categories with parentId
+        const categoriesWithParents = await Promise.all(
+          categories.data.map(async (category) => {
+            if (category.parentId) {
+              const parent = await categoryService.findOne(category.parentId);
+              return {
+                ...category,
+                parent: parent
+              };
+            }
+            return {
+              ...category,
+              parent: null
+            };
+          })
+        );
+
+        res.json({
+          message: "Categories retrieved successfully",
+          requestId: cuid(),
+          data: {
+            data: categoriesWithParents,
+            meta: categories.meta
+          },
+          code: 0,
+        });
+      } catch (error: unknown) {
+        res.status(500).json({
+          message: (error as Error).message,
+          requestId: cuid(),
+          data: null,
+          code: 1,
+        });
+      }
+    },
+
     getCategory: async (req: Request, res: Response) => {
       try {
         const category = await categoryService.findOne(req.params.id);
