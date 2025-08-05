@@ -1,7 +1,10 @@
-import { IsOptional, IsString, IsEnum, IsBoolean } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
-import { SELLER_STATUS, SELLER_VERIFICATION_STATUS } from '../entities/seller.entity';
+import { IsOptional, IsString, IsEnum, IsBoolean } from "class-validator";
+import { Transform } from "class-transformer";
+import { PaginationQueryDto } from "../../../common/dto/pagination-query.dto";
+import {
+  SELLER_STATUS,
+  SELLER_VERIFICATION_STATUS,
+} from "../entities/seller.entity";
 
 export class GetSellersQueryDto extends PaginationQueryDto {
   @IsOptional()
@@ -31,8 +34,8 @@ export class GetSellersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value === 'true' || value === '1';
+    if (typeof value === "string") {
+      return value === "true" || value === "1";
     }
     return value;
   })
@@ -41,10 +44,18 @@ export class GetSellersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value === 'true' || value === '1';
+    if (typeof value === "string") {
+      return value === "true" || value === "1";
     }
     return value;
   })
   includeProducts?: boolean;
-} 
+
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @IsOptional()
+  @IsString()
+  order?: "asc" | "desc";
+}

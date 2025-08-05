@@ -4,6 +4,7 @@ import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { CategoryResponseDto } from "./dto/category-response.dto";
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
+import { GetCategoriesUnrestrictedQueryDto } from "./dto/get-categories-unrestricted-query.dto";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
 import { MediaFileResponseDto } from "../media/dto/media-file-response.dto";
 import { AppDataSource } from "../../config/database";
@@ -53,6 +54,7 @@ export class CategoryService {
       parentId: category.parentId,
       thumbnailImage: transformMediaFile(category.thumbnailImage),
       coverImage: transformMediaFile(category.coverImage),
+      children: [],
     };
   }
 
@@ -158,6 +160,78 @@ export class CategoryService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async findAllWithParents(
+    query: GetCategoriesUnrestrictedQueryDto
+  ): Promise<CategoryResponseDto[]> {
+    const {
+      sort = "updatedAt",
+      order = "desc",
+      filters = {},
+    } = query;
+    const { search, parentId, isActive, isFeatured, isPopular } = filters;
+
+    // Build where conditions
+    const baseConditions: FindOptionsWhere<any> = {};
+
+    if (parentId) baseConditions.parentId = parentId;
+    if (isActive !== undefined) baseConditions.isActive = isActive;
+    if (isFeatured !== undefined) baseConditions.isFeatured = isFeatured;
+    if (isPopular !== undefined) baseConditions.isPopular = isPopular;
+
+    let where: FindOptionsWhere<any>[] | FindOptionsWhere<any> = baseConditions;
+
+    if (search) {
+      where = [
+        { ...baseConditions, name: Like(`%${search}%`) },
+        { ...baseConditions, slug: Like(`%${search}%`) },
+        { ...baseConditions, description: Like(`%${search}%`) },
+      ];
+    }
+
+    // Get all categories with parent relations in single query (no pagination)
+    const categories = await this.categoryRepository.find({
+      relations: ["parent", "thumbnailImage"],
+      where,
+      order: {
+        [sort]: order,
+      },
+    });
+
+    // Transform categories to response DTO
+    const categoryDtos = await Promise.all(
+      categories.map((category) => this.transformToResponseDto(category))
+    );
+
+    // Build hierarchical tree structure
+    return this.buildCategoryTree(categoryDtos);
+  }
+
+  private buildCategoryTree(categories: CategoryResponseDto[]): CategoryResponseDto[] {
+    const categoryMap = new Map<string, CategoryResponseDto>();
+    const rootCategories: CategoryResponseDto[] = [];
+
+    // First pass: create a map of all categories
+    categories.forEach(category => {
+      categoryMap.set(category.id, { ...category, children: [] });
+    });
+
+    // Second pass: build the tree structure
+    categories.forEach(category => {
+      const categoryWithChildren = categoryMap.get(category.id)!;
+      
+      if (category.parentId && categoryMap.has(category.parentId)) {
+        // This is a child category
+        const parent = categoryMap.get(category.parentId)!;
+        parent.children!.push(categoryWithChildren);
+      } else {
+        // This is a root category
+        rootCategories.push(categoryWithChildren);
+      }
+    });
+
+    return rootCategories;
   }
 
   async findOne(id: string): Promise<CategoryResponseDto> {

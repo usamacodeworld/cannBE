@@ -19,6 +19,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || "cannbe",
   synchronize: false,
   logging: process.env.NODE_ENV === "development",
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
 
   entities: [
     `${basePath}/modules/role/entities/role.entity.${extension}`,

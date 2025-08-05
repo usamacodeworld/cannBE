@@ -19,7 +19,8 @@ import { Seller } from "../modules/seller/entities/seller.entity";
 import { ShippingZone } from "../modules/shipping/shipping-zone.entity";
 import { ShippingMethod } from "../modules/shipping/shipping-method.entity";
 import { ShippingRate } from "../modules/shipping/shipping-rate.entity";
-
+import dotenv from "dotenv";
+dotenv.config();
 export const AppSeederDataSource = new DataSource({
   type: "postgres",
   host: process.env.DB_HOST || "localhost",
@@ -27,6 +28,7 @@ export const AppSeederDataSource = new DataSource({
   username: process.env.DB_USERNAME || "postgres",
   password: process.env.DB_PASSWORD || "rootp",
   database: process.env.DB_NAME || "cannbe",
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
   synchronize: false,
   logging: false,
   entities: [

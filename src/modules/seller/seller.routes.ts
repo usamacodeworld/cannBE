@@ -43,5 +43,6 @@ router.post('/:id/reject', controller.rejectSeller);
 router.post('/:id/suspend', controller.suspendSeller);
 router.delete('/:id', controller.deleteSeller);
 router.get('/:id/stats', controller.getSellerStats);
+router.post('/sync-product-counts', controller.syncAllSellerProductCounts);
 
 export default router; 

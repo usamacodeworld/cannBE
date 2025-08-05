@@ -1,6 +1,16 @@
-import { IsString, IsOptional, IsEmail, IsEnum, IsDateString, IsNumber } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { SELLER_STATUS, SELLER_VERIFICATION_STATUS } from '../entities/seller.entity';
+import {
+  IsString,
+  IsOptional,
+  IsEmail,
+  IsEnum,
+  IsDateString,
+  IsNumber,
+} from "class-validator";
+import { Transform } from "class-transformer";
+import {
+  SELLER_STATUS,
+  SELLER_VERIFICATION_STATUS,
+} from "../entities/seller.entity";
 
 export class UpdateSellerDto {
   @IsOptional()
@@ -90,5 +100,9 @@ export class UpdateSellerDto {
 
   @IsOptional()
   @IsString()
+  userId?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
-} 
+}

@@ -1,0 +1,312 @@
+
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Order Shipped - CannBE</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+          }
+          
+          .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+          }
+          
+          .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+          }
+          
+          .header p {
+            font-size: 16px;
+            opacity: 0.9;
+          }
+          
+          .shipping-icon {
+            width: 60px;
+            height: 60px;
+            background-color: #28a745;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 30px;
+            color: white;
+          }
+          
+          .content {
+            padding: 40px 30px;
+          }
+          
+          .order-summary {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-left: 4px solid #28a745;
+          }
+          
+          .order-number {
+            font-size: 24px;
+            font-weight: 600;
+            color: #28a745;
+            margin-bottom: 15px;
+          }
+          
+          .tracking-section {
+            background-color: #e8f5e8;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #28a745;
+          }
+          
+          .tracking-section h3 {
+            color: #155724;
+            font-size: 18px;
+            margin-bottom: 15px;
+          }
+          
+          .tracking-info {
+            background-color: white;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+          }
+          
+          .tracking-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          
+          .tracking-row:last-child {
+            border-bottom: none;
+          }
+          
+          .tracking-label {
+            font-weight: 600;
+            color: #155724;
+          }
+          
+          .tracking-value {
+            color: #333;
+          }
+          
+          .shipping-address {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+          }
+          
+          .shipping-address h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+          }
+          
+          .address-details {
+            line-height: 1.8;
+            color: #6c757d;
+          }
+          
+          .cta-section {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          
+          .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+          }
+          
+          .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+          }
+          
+          .footer {
+            background-color: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+          }
+          
+          .footer h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+          }
+          
+          .footer p {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 10px;
+          }
+          
+          .social-links {
+            margin-top: 20px;
+          }
+          
+          .social-links a {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 50%;
+            margin: 0 5px;
+            line-height: 40px;
+            font-size: 16px;
+          }
+          
+          @media (max-width: 600px) {
+            .tracking-row {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 5px;
+            }
+            
+            .header {
+              padding: 30px 20px;
+            }
+            
+            .content {
+              padding: 30px 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="email-container">
+          <!-- Header -->
+          <div class="header">
+            <div class="shipping-icon">🚚</div>
+            <h1>Your Order Has Been Shipped!</h1>
+            <p>Order #ORD-2024-001 is on its way to you.</p>
+          </div>
+          
+          <!-- Content -->
+          <div class="content">
+            <!-- Order Summary -->
+            <div class="order-summary">
+              <div class="order-number">Order #ORD-2024-001</div>
+              <p>Your order has been shipped and is now in transit. You can track its progress using the information below.</p>
+            </div>
+            
+            <!-- Tracking Information -->
+            <div class="tracking-section">
+              <h3>📦 Tracking Information</h3>
+              <div class="tracking-info">
+                
+                  <div class="tracking-row">
+                    <span class="tracking-label">Tracking Number:</span>
+                    <span class="tracking-value">TRK123456789</span>
+                  </div>
+                
+                
+                  <div class="tracking-row">
+                    <span class="tracking-label">Estimated Delivery:</span>
+                    <span class="tracking-value">August 9, 2025</span>
+                  </div>
+                
+                <div class="tracking-row">
+                  <span class="tracking-label">Shipping Method:</span>
+                  <span class="tracking-value">Standard Shipping</span>
+                </div>
+                <div class="tracking-row">
+                  <span class="tracking-label">Status:</span>
+                  <span class="tracking-value" style="color: #28a745; font-weight: 600;">In Transit</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Shipping Address -->
+            <div class="shipping-address">
+              <h3>📍 Shipping Address</h3>
+              <div class="address-details">
+                John Doe<br>
+                123 Main Street<br>
+                Apt 4B<br>
+                New York, NY 10001<br>
+                USA
+              </div>
+            </div>
+            
+            <!-- CTA Section -->
+            <div class="cta-section">
+              
+                <a href="https://tracking.carrier.com/TRK123456789" class="cta-button" style="margin-right: 15px;">
+                  Track Package
+                </a>
+              
+              <a href="https://cannbe.com/orders/ORD-2024-001" class="cta-button">
+                View Order Details
+              </a>
+            </div>
+            
+            <!-- Additional Info -->
+            <div style="background-color: #e8f5e8; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+              <h3 style="color: #155724; margin-bottom: 10px;">📋 What to Expect</h3>
+              <ul style="color: #155724; padding-left: 20px;">
+                <li>Your package will be delivered to the address above</li>
+                <li>You'll receive a delivery notification when it arrives</li>
+                <li>If you're not home, the carrier will leave a delivery notice</li>
+                <li>Please allow 1-2 business days for delivery</li>
+              </ul>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="footer">
+            <h3>CannBE</h3>
+            <p>Thank you for choosing us!</p>
+            <p>If you have any questions about your shipment, please contact our support team</p>
+            <p>Email: support@cannbe.com | Phone: +1 (555) 123-4567</p>
+            <div class="social-links">
+              <a href="#" title="Facebook">f</a>
+              <a href="#" title="Twitter">t</a>
+              <a href="#" title="Instagram">i</a>
+            </div>
+            <p style="margin-top: 20px; font-size: 12px; opacity: 0.6;">
+              © 2024 CannBE. All rights reserved.<br>
+              This email was sent to john.doe@example.com
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    

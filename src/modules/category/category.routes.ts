@@ -17,7 +17,7 @@ const {
   createCategory,
   getCategories,
   getCategory,
-  getCategoriesUnristricted,
+  getCategoriesUnrestricted,
   getCategoryBySlug,
   updateCategory,
   deleteCategory,
@@ -42,10 +42,7 @@ router.get(
   getCategories
 );
 
-router.get(
-  "/all/unristricted",
-  getCategoriesUnristricted
-);
+router.get("/all/unrestricted", getCategoriesUnrestricted);
 
 router.get(
   "/parents",

@@ -12,6 +12,7 @@ import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto";
 import slugify from "slug";
 import { MediaFile } from "../media/media-file.entity";
 import { Seller } from "../seller/entities/seller.entity";
+import { SellerService } from "../seller/seller.service";
 
 export class ProductService {
   private productRepository: Repository<Product>;
@@ -20,6 +21,7 @@ export class ProductService {
   private categoryRepository: Repository<Category>;
   private mediaRepository: Repository<MediaFile>;
   private sellerRepository: Repository<Seller>;
+  private sellerService: SellerService;
 
   constructor(
     productRepository: Repository<Product>,
@@ -27,7 +29,8 @@ export class ProductService {
     attributeValueRepository: Repository<AttributeValue>,
     categoryRepository: Repository<Category>,
     mediaRepository: Repository<MediaFile>,
-    sellerRepository: Repository<Seller>
+    sellerRepository: Repository<Seller>,
+    sellerService: SellerService
   ) {
     this.productRepository = productRepository;
     this.attributeRepository = attributeRepository;
@@ -35,6 +38,7 @@ export class ProductService {
     this.categoryRepository = categoryRepository;
     this.mediaRepository = mediaRepository;
     this.sellerRepository = sellerRepository;
+    this.sellerService = sellerService;
   }
 
   private async toProductResponse(
@@ -42,7 +46,7 @@ export class ProductService {
     includeRelations: boolean = false
   ): Promise<ProductResponseDto> {
     const response = { ...product };
-    
+
     // Include seller information if available
     if (product.seller) {
       response.seller = {
@@ -55,10 +59,10 @@ export class ProductService {
         status: product.seller.status,
         verificationStatus: product.seller.verificationStatus,
         rating: product.seller.rating,
-        reviewCount: product.seller.reviewCount
+        reviewCount: product.seller.reviewCount,
       };
     }
-    
+
     return response;
   }
 
@@ -123,12 +127,12 @@ export class ProductService {
       // Validate seller if provided
       if (productData.sellerId) {
         const seller = await this.sellerRepository.findOne({
-          where: { id: productData.sellerId }
+          where: { id: productData.sellerId },
         });
         if (!seller) {
           throw new Error("Seller not found");
         }
-        if (seller.status !== 'approved') {
+        if (seller.status !== "approved") {
           throw new Error("Seller must be approved to create products");
         }
       }
@@ -178,6 +182,11 @@ export class ProductService {
       // Handle variations if provided
       if (variations && Array.isArray(variations)) {
         await this.createProductVariations(savedProduct.id, variations);
+      }
+
+      // Update seller product count
+      if (savedProduct.sellerId) {
+        await this.sellerService.updateSellerProductCount(savedProduct.sellerId);
       }
 
       // Return the complete product with relations
@@ -487,6 +496,11 @@ export class ProductService {
       await this.updateProductVariations(id, data.variations);
     }
 
+    // Update seller product count
+    if (updatedProduct.sellerId) {
+      await this.sellerService.updateSellerProductCount(updatedProduct.sellerId);
+    }
+
     return this.toProductResponse(updatedProduct);
   }
 
@@ -559,6 +573,11 @@ export class ProductService {
 
     // Delete the product
     await this.productRepository.delete({ id });
+
+    // Update seller product count
+    if (product.sellerId) {
+      await this.sellerService.updateSellerProductCount(product.sellerId);
+    }
   }
 
   async findByCategoryId(
@@ -572,17 +591,26 @@ export class ProductService {
       order = "desc",
       filters = {},
     } = query;
+
     const skip = (page - 1) * limit;
 
-    // Build where condition for category relation
+    // Manually get child categories (1 level)
+    const childCategories = await this.categoryRepository.find({
+      where: { parentId: categoryId },
+      select: ["id"],
+    });
+
+    const categoryIds = [categoryId, ...childCategories.map((cat) => cat.id)];
+
+    // Build dynamic where clause
     const where: any = {
-      categories: { id: categoryId },
+      categories: {
+        id: In(categoryIds),
+      },
     };
 
-    // Optionally add more filters (search, published, etc.)
     if (filters.search) {
-      where.name =
-        typeof filters.search === "string" ? filters.search : undefined;
+      where.name = filters.search;
     }
     if (filters.published !== undefined) {
       where.published = filters.published;
@@ -595,13 +623,14 @@ export class ProductService {
     }
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
       where.regularPrice = {};
-      if (filters.minPrice !== undefined)
+      if (filters.minPrice !== undefined) {
         where.regularPrice["$gte"] = filters.minPrice;
-      if (filters.maxPrice !== undefined)
+      }
+      if (filters.maxPrice !== undefined) {
         where.regularPrice["$lte"] = filters.maxPrice;
+      }
     }
 
-    // Query products
     const [products, total] = await this.productRepository.findAndCount({
       where,
       skip,
@@ -640,7 +669,7 @@ export class ProductService {
 
     // Validate seller exists
     const seller = await this.sellerRepository.findOne({
-      where: { id: sellerId }
+      where: { id: sellerId },
     });
     if (!seller) {
       throw new Error("Seller not found");

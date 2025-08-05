@@ -12,7 +12,7 @@ export const createUser = async (
 ): Promise<UserResponseDto> => {
   // Get repository instance each time to ensure proper initialization
   const userRepository = AppDataSource.getRepository(User);
-  
+
   // Check for existing user
   const existingUser = await userRepository.findOne({
     where: { email: createUserDto.email },
@@ -24,9 +24,9 @@ export const createUser = async (
 
   const user = userRepository.create({
     ...createUserDto,
-    type: USER_TYPE.BUYER, // Default type for registration
+    type: (createUserDto.role as USER_TYPE) ?? USER_TYPE.BUYER, // Default type for registration
     isActive: true, // Default to active
-    emailVerified: false // Default to not verified
+    emailVerified: false, // Default to not verified
   });
 
   await userRepository.save(user);

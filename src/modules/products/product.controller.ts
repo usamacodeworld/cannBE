@@ -7,6 +7,7 @@ import { Category } from "../category/category.entity";
 import { MediaFile } from "../media/media-file.entity";
 import { Seller } from "../seller/entities/seller.entity";
 import { ProductService } from "./product.service";
+import { SellerService } from "../seller/seller.service";
 import { cuid } from "../../libs/cuid";
 import slug from "slug";
 import { GetProductsQueryDto } from "./dto/get-products-query.dto";
@@ -19,6 +20,7 @@ import { authenticate } from "../auth/middlewares/auth.middleware";
 import { upload } from "../../common/middlewares/upload.middleware";
 import { globalFormDataBoolean } from "../../common/middlewares/global-formdata-boolean";
 import { BaseController } from "../../common/controllers/base.controller";
+import { User } from "../user/user.entity";
 
 class ProductController extends BaseController {
   private productService: ProductService;
@@ -29,7 +31,8 @@ class ProductController extends BaseController {
     attributeValueRepository: Repository<AttributeValue>,
     categoryRepository: Repository<Category>,
     mediaRepository: Repository<MediaFile>,
-    sellerRepository: Repository<Seller>
+    sellerRepository: Repository<Seller>,
+    sellerService: SellerService
   ) {
     super();
     this.productService = new ProductService(
@@ -38,7 +41,8 @@ class ProductController extends BaseController {
       attributeValueRepository,
       categoryRepository,
       mediaRepository,
-      sellerRepository
+      sellerRepository,
+      sellerService
     );
   }
 
@@ -161,7 +165,8 @@ export function productController(
   attributeValueRepository: Repository<AttributeValue>,
   categoryRepository: Repository<Category>,
   mediaRepository: Repository<MediaFile>,
-  sellerRepository: Repository<Seller>
+  sellerRepository: Repository<Seller>,
+  sellerService: SellerService
 ) {
   const controller = new ProductController(
     productRepository,
@@ -169,7 +174,8 @@ export function productController(
     attributeValueRepository,
     categoryRepository,
     mediaRepository,
-    sellerRepository
+    sellerRepository,
+    sellerService
   );
 
   return {
@@ -185,17 +191,5 @@ export function productController(
 }
 
 const router = Router();
-const productRepository = AppDataSource.getRepository(Product);
-const attributeRepository = AppDataSource.getRepository(Attribute);
-const attributeValueRepository = AppDataSource.getRepository(AttributeValue);
-const categoryRepository = AppDataSource.getRepository(Category);
-const mediaRepository = AppDataSource.getRepository(MediaFile);
-const sellerRepository = AppDataSource.getRepository(Seller);
-const ctrl = productController(
-  productRepository,
-  attributeRepository,
-  attributeValueRepository,
-  categoryRepository,
-  mediaRepository,
-  sellerRepository
-);
+
+export default router;

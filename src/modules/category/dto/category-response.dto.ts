@@ -16,4 +16,5 @@ export class CategoryResponseDto implements BaseDto {
     parentId?: string;
     thumbnailImage?: MediaFileResponseDto;
     coverImage?: MediaFileResponseDto;
+    children?: CategoryResponseDto[];
 } 

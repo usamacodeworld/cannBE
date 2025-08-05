@@ -1034,6 +1034,13 @@ export class CheckoutService {
           paymentRequest
         );
 
+        // const paymentResponse = {
+        //   success: true,
+        //   paymentStatus: PAYMENT_STATUS.CAPTURED,
+        //   transactionId: "test-transaction-id",
+        //   gatewayResponse: { message: "Mock payment success" },
+        // };
+
         if (
           !paymentResponse.success &&
           paymentResponse.paymentStatus !== PAYMENT_STATUS.PENDING
@@ -1186,6 +1193,8 @@ export class CheckoutService {
         };
 
         const emailSent = await emailService.sendOrderConfirmation(emailData);
+
+        console.log("Email Response ==> ", emailSent);
 
         // Prepare response
         const response: OrderConfirmationResponseDto = {

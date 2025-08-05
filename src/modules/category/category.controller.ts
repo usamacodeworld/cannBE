@@ -4,6 +4,7 @@ import { Category } from "./category.entity";
 import { CategoryService } from "./category.service";
 
 import { GetCategoriesQueryDto } from "./dto/get-categories-query.dto";
+import { GetCategoriesUnrestrictedQueryDto } from "./dto/get-categories-unrestricted-query.dto";
 import slugify from "slug";
 import { cuid } from "../../libs/cuid";
 
@@ -60,35 +61,15 @@ export function categoryController(categoryRepository: Repository<Category>) {
       }
     },
 
-    getCategoriesUnristricted: async (req: Request, res: Response) => {
+    getCategoriesUnrestricted: async (req: Request, res: Response) => {
       try {
-        const query = req.query as unknown as GetCategoriesQueryDto;
-        const categories = await categoryService.findAll(query);
-
-        // Fetch parent details for categories with parentId
-        const categoriesWithParents = await Promise.all(
-          categories.data.map(async (category) => {
-            if (category.parentId) {
-              const parent = await categoryService.findOne(category.parentId);
-              return {
-                ...category,
-                parent: parent
-              };
-            }
-            return {
-              ...category,
-              parent: null
-            };
-          })
-        );
-
+        const query = req.query as unknown as GetCategoriesUnrestrictedQueryDto;
+        const categories = await categoryService.findAllWithParents(query);
+        
         res.json({
           message: "Categories retrieved successfully",
           requestId: cuid(),
-          data: {
-            data: categoriesWithParents,
-            meta: categories.meta
-          },
+          data: categories,
           code: 0,
         });
       } catch (error: unknown) {

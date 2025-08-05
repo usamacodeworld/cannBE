@@ -8,6 +8,11 @@ import {
 } from "class-validator";
 
 export class CreateUserDto {
+  @IsOptional()
+  @IsString({ message: "Username must be a string" })
+  @MinLength(2)
+  userName: string;
+
   @IsString({ message: "First name must be a string" })
   @MinLength(2)
   firstName: string;
@@ -25,14 +30,22 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString({ message: "Phone number must be a string" })
-  @Matches(/^\+?[1-9]\d{1,14}$/, {
-    message: "Please provide a valid phone number",
-  })
+  // @Matches(/^\+?[1-9]\d{1,14}$/, {
+  //   message: "Please provide a valid phone number",
+  // })
   phone?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: "is Active must be a boolean" })
+  isActive?: boolean;
 
   @IsOptional()
   @IsBoolean({ message: "Email verification status must be a boolean" })
   emailVerified?: boolean;
+
+  @IsOptional()
+  @IsString({ message: "role must be a string" })
+  role?: string;
 
   @IsOptional()
   @IsString({ message: "GuestId to register Guest account as User" })

@@ -151,6 +151,16 @@ export function sellerController(
       } catch (error) {
         next(error);
       }
+    },
+
+    // Sync all sellers' product counts (Admin only)
+    syncAllSellerProductCounts: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        await sellerService.updateAllSellersProductCounts();
+        res.json(getResponseAPI("0", { message: "All seller product counts synced successfully" }));
+      } catch (error) {
+        next(error);
+      }
     }
   };
 } 
